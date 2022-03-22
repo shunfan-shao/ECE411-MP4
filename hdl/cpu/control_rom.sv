@@ -18,6 +18,7 @@ begin
     ctrl.pcmux_sel = pcmux::pc_plus4;
     ctrl.cmpmux_sel = cmpmux::rs2_out;
     /* ... other defaults ... */
+    ctrl.cmpop = branch_funct3_t'(funct3);
 
     /* Assign control signals based on opcode */
     case(opcode)

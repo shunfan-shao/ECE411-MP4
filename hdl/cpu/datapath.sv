@@ -289,7 +289,7 @@ REGFILE(
 
 cmp
 CMP(
-    .cmpop(branch_funct3_t'(inst_decoder[STAGE_EX].funct3)),
+    .cmpop(inst_control[STAGE_EX].cmpop),
     .a(rs1_out[STAGE_EX]),
     .b(cpmmux_out),
     .br_en(br_en[STAGE_EX])
