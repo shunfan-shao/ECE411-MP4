@@ -31,7 +31,7 @@ localparam STAGE_MEM = 3;
 localparam STAGE_WB  = 4;
 
 logic stall;
-rv32i_word inst[STAGE_IF:STAGE_WB];
+rv32i_word inst[STAGE_ID:STAGE_WB];
 rv32i_decoder_word inst_decoder[STAGE_ID:STAGE_WB];
 rv32i_control_word inst_control[STAGE_ID:STAGE_WB];
 rv32i_word alu_out[STAGE_EX:STAGE_WB];
@@ -71,15 +71,15 @@ assign data_addr = {alu_out[STAGE_MEM][31:2], 2'b00};
 // logic [4:0] rs2[STAGE_IF:STAGE_WB];
 // logic [4:0] rd[STAGE_IF:STAGE_WB];
 
-assign inst[STAGE_IF] = inst_rdata;
-assign inst[STAGE_ID] = inst[STAGE_IF]; //TODO: unless stall
+assign inst[STAGE_ID] = inst_rdata;
+// assign inst[STAGE_ID] = inst[STAGE_IF]; //TODO: unless stall
 assign inst_control[STAGE_ID] = ctrl;
 
 pc_register #(.width(32))
 PC(
     .clk(clk),
     .rst(rst),
-    .load(1'b1), // TODO: for cp1, always load
+    .load(~stall), // TODO: for cp1, always load
     .in(pcmux_out),
     .out(pc_out[STAGE_IF])
 );
@@ -93,12 +93,13 @@ PC(
 //     .out(inst_decoder[STAGE_ID])
 // );
 
+
 /* pc out */
 register #(.width(32))
 PC_IF_ID(
     .clk(clk),
     .rst(rst),
-    .load(1'b1),
+    .load(~stall),
     .in(pc_out[STAGE_IF]),
     .out(pc_out[STAGE_ID])
 );
@@ -107,7 +108,7 @@ register #(.width(32))
 PC_ID_EX(
     .clk(clk),
     .rst(rst),
-    .load(1'b1),
+    .load(~stall),
     .in(pc_out[STAGE_ID]),
     .out(pc_out[STAGE_EX])
 );
@@ -116,7 +117,7 @@ register #(.width(32))
 PC_EX_MEM(
     .clk(clk),
     .rst(rst),
-    .load(1'b1),
+    .load(~stall),
     .in(pc_out[STAGE_EX]),
     .out(pc_out[STAGE_MEM])
 );
@@ -125,7 +126,7 @@ register #(.width(32))
 PC_MEM_WB(
     .clk(clk),
     .rst(rst),
-    .load(1'b1),
+    .load(~stall),
     .in(pc_out[STAGE_MEM]),
     .out(pc_out[STAGE_WB])
 );
@@ -135,7 +136,7 @@ register #(.width($bits(rv32i_decoder_word)))
 InstDecoder_ID_EX(
     .clk(clk),
     .rst(rst),
-    .load(1'b1), // TODO: for cp1, always load
+    .load(~stall), // TODO: for cp1, always load
     .in(inst_decoder[STAGE_ID]),
     .out(inst_decoder[STAGE_EX])
 );
@@ -144,7 +145,7 @@ register #(.width($bits(rv32i_decoder_word)))
 InstDecoder_EX_MEM(
     .clk(clk),
     .rst(rst),
-    .load(1'b1), // TODO: for cp1, always load
+    .load(~stall), // TODO: for cp1, always load
     .in(inst_decoder[STAGE_EX]),
     .out(inst_decoder[STAGE_MEM])
 );
@@ -153,7 +154,7 @@ register #(.width($bits(rv32i_decoder_word)))
 InstDecoder_MEM_WB(
     .clk(clk),
     .rst(rst),
-    .load(1'b1), // TODO: for cp1, always load
+    .load(~stall), // TODO: for cp1, always load
     .in(inst_decoder[STAGE_MEM]),
     .out(inst_decoder[STAGE_WB])
 );
@@ -163,7 +164,7 @@ register #(.width($bits(rv32i_control_word)))
 Ctrl_ID_EX(
     .clk(clk),
     .rst(rst),
-    .load(1'b1), //TODO: for cp not stall
+    .load(~stall), //TODO: for cp not stall
     .in(inst_control[STAGE_ID]),
     .out(inst_control[STAGE_EX])
 );
@@ -172,7 +173,7 @@ register #(.width($bits(rv32i_control_word)))
 Ctrl_EX_MEM(
     .clk(clk),
     .rst(rst),
-    .load(1'b1), //TODO: for cp not stall
+    .load(~stall), //TODO: for cp not stall
     .in(inst_control[STAGE_EX]),
     .out(inst_control[STAGE_MEM])
 );
@@ -181,7 +182,7 @@ register #(.width($bits(rv32i_control_word)))
 Ctrl_MEM_WB(
     .clk(clk),
     .rst(rst),
-    .load(1'b1), //TODO: for cp not stall
+    .load(~stall), //TODO: for cp not stall
     .in(inst_control[STAGE_MEM]),
     .out(inst_control[STAGE_WB])
 );
@@ -191,7 +192,7 @@ register #(.width(32))
 ALU_EX_MEM(
     .clk(clk),
     .rst(rst),
-    .load(1'b1), //TODO: for cp not stall
+    .load(~stall), //TODO: for cp not stall
     .in(alu_out[STAGE_EX]),
     .out(alu_out[STAGE_MEM])
 );
@@ -200,7 +201,7 @@ register #(.width(32))
 ALU_MEM_WB(
     .clk(clk),
     .rst(rst),
-    .load(1'b1), //TODO: for cp not stall
+    .load(~stall), //TODO: for cp not stall
     .in(alu_out[STAGE_MEM]),
     .out(alu_out[STAGE_WB])
 );
@@ -210,7 +211,7 @@ register #(.width(32))
 RS1_ID_EX(
     .clk(clk),
     .rst(rst),
-    .load(1'b1), //TODO: for cp not stall
+    .load(~stall), //TODO: for cp not stall
     .in(rs1_out[STAGE_ID]),
     .out(rs1_out[STAGE_EX])
 );
@@ -219,7 +220,7 @@ register #(.width(32))
 RS2_ID_EX(
     .clk(clk),
     .rst(rst),
-    .load(1'b1), //TODO: for cp not stall
+    .load(~stall), //TODO: for cp not stall
     .in(rs2_out[STAGE_ID]),
     .out(rs2_out[STAGE_EX])
 );
@@ -228,7 +229,7 @@ register #(.width(32))
 RS2_EX_MEM(
     .clk(clk),
     .rst(rst),
-    .load(1'b1), //TODO: for cp not stall
+    .load(~stall), //TODO: for cp not stall
     .in(rs2_out[STAGE_EX]),
     .out(rs2_out[STAGE_MEM])
 );
@@ -238,7 +239,7 @@ register #(.width(32))
 MDR(
     .clk(clk),
     .rst(rst),
-    .load(1'b1),
+    .load(~stall),
     .in(data_rdata),
     .out(mem_rdata[STAGE_WB])
 );
@@ -250,7 +251,7 @@ ir
 IR(
     .clk(clk),
     .rst(rst),
-    .load(1'b1),
+    .load(~stall),
     .in(inst[STAGE_ID]),
     .funct3(inst_decoder[STAGE_ID].funct3),
     .funct7(inst_decoder[STAGE_ID].funct7),
@@ -293,6 +294,20 @@ CMP(
     .b(cpmmux_out),
     .br_en(br_en[STAGE_EX])
 );
+
+
+always_comb begin : STALL
+    stall = 1'b0;
+
+    if (inst_read & ~inst_resp) begin
+        stall = 1'b1;
+    end else if (data_read & ~data_resp) begin
+        stall = 1'b1;
+    end else if (data_write & ~data_resp) begin
+        stall = 1'b1;
+    end
+
+end
 
 always_comb begin : MEM_W
     unique case (inst_decoder[STAGE_MEM].funct3) 
@@ -349,6 +364,7 @@ always_comb begin : MUXES
 
     unique case (inst_control[STAGE_WB].regfilemux_sel)
         regfilemux::u_imm: regfilemux_out = inst_decoder[STAGE_WB].u_imm;
+        regfilemux::br_en: regfilemux_out =  {31'd0, br_en[STAGE_WB]};
         regfilemux::pc_plus4: regfilemux_out = pc_out[STAGE_WB] + 4;
         regfilemux::alu_out: regfilemux_out = alu_out[STAGE_WB];
         regfilemux::lw: regfilemux_out = mem_rdata[STAGE_WB]; 

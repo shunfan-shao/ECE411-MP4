@@ -87,14 +87,50 @@ begin
             ctrl.alumux1_sel = alumux::rs1_out;
             ctrl.alumux2_sel = alumux::i_imm;
             ctrl.regfilemux_sel = regfilemux::alu_out;
-            ctrl.aluop = alu_ops'(funct3);
+
+            unique case (funct3) 
+                rv32i_types::slt: begin
+                    ctrl.cmpop = rv32i_types::blt;
+                    ctrl.regfilemux_sel = regfilemux::br_en;
+                    ctrl.cmpmux_sel = cmpmux::i_imm;
+                end
+                rv32i_types::sltu: begin
+                    ctrl.cmpop = rv32i_types::bltu;
+                    ctrl.regfilemux_sel = regfilemux::br_en;
+                    ctrl.cmpmux_sel = cmpmux::i_imm;
+                end
+                rv32i_types::sr: begin
+                    if (funct7 == 7'b0100000) begin
+                        ctrl.aluop = rv32i_types::alu_sra;
+                    end else begin
+                        ctrl.aluop = rv32i_types::alu_srl;
+                    end
+                end
+                default: ctrl.aluop = alu_ops'(funct3);
+            endcase
         end
         op_reg: begin
             ctrl.load_regfile = 1'b1;
             ctrl.alumux1_sel = alumux::rs1_out;
             ctrl.alumux2_sel = alumux::rs2_out;
             ctrl.aluop = alu_ops'(funct3);
-            //TODO: incomplete, this is only add/minus...
+            if (funct3 == rv32i_types::add) begin 
+                if (funct7 == 7'b0100000) begin
+                    ctrl.aluop = rv32i_types::alu_sub;
+                end
+            end else if (funct3 == rv32i_types::sr) begin
+                if (funct7 == 7'b0100000) begin
+                    ctrl.aluop = rv32i_types::alu_sra;
+                end
+            end else if (funct3 == rv32i_types::slt) begin
+                ctrl.cmpop = rv32i_types::blt;
+                ctrl.regfilemux_sel = regfilemux::br_en;
+                ctrl.cmpmux_sel = cmpmux::rs2_out;
+            end else if (funct3 == rv32i_types::sltu) begin
+                ctrl.cmpop = rv32i_types::bltu;
+                ctrl.regfilemux_sel = regfilemux::br_en;
+                ctrl.cmpmux_sel = cmpmux::rs2_out;
+            end
         end 
 
         /* ... other opcodes ... */
