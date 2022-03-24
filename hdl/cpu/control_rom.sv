@@ -115,6 +115,7 @@ begin
             ctrl.alumux1_sel = alumux::rs1_out;
             ctrl.alumux2_sel = alumux::rs2_out;
             ctrl.aluop = alu_ops'(funct3);
+            ctrl.regfilemux_sel = regfilemux::alu_out;
             if (funct3 == rv32i_types::add) begin 
                 if (funct7 == 7'b0100000) begin
                     ctrl.aluop = rv32i_types::alu_sub;
