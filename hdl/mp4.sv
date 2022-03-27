@@ -36,7 +36,7 @@ logic [255:0] cline_rdata, cline_wdata;
 logic cline_read, cline_write, cline_resp;
 /******************************************************************************/
 
-assign pmem_write = 1'b0;
+// assign pmem_write = 1'b0;
 
 // /* I Cache */
 // logic       inst_read;

@@ -244,6 +244,24 @@ MDR(
     .out(mem_rdata[STAGE_WB])
 );
 
+/* BR_EN */
+register #(.width(1))
+BR_EN_EX_MEM(
+    .clk(clk),
+    .rst(rst),
+    .load(~stall),
+    .in(br_en[STAGE_EX]),
+    .out(br_en[STAGE_MEM])
+);
+
+register #(.width(1))
+BR_EN_MEM_WB(
+    .clk(clk),
+    .rst(rst),
+    .load(~stall),
+    .in(br_en[STAGE_MEM]),
+    .out(br_en[STAGE_WB])
+);
 /* All Registers */
 
 
@@ -359,7 +377,7 @@ always_comb begin : MUXES
         alumux::b_imm: alumux2_out = inst_decoder[STAGE_EX].b_imm;
         alumux::u_imm: alumux2_out = inst_decoder[STAGE_EX].u_imm;
         alumux::rs2_out: alumux2_out = rs2_out[STAGE_EX];
-        default: $display("unimplemented option %d at %0d\n", inst_control[STAGE_EX].alumux2_sel, `__LINE__);
+        // default: $display("unimplemented option %d at %0d\n", inst_control[STAGE_EX].alumux2_sel, `__LINE__);
     endcase
 
     unique case (inst_control[STAGE_WB].regfilemux_sel)
@@ -396,7 +414,7 @@ always_comb begin : MUXES
                 2'b11: regfilemux_out = {24'd0, mem_rdata[STAGE_WB][31:24]};
             endcase
         end
-        default: $display("Unexpected regfilemux_sel %d at %0t\n", inst_control[STAGE_WB].regfilemux_sel, $time);
+        // default: $display("Unexpected regfilemux_sel %d at %0t\n", inst_control[STAGE_WB].regfilemux_sel, $time);
     endcase
 end
 
