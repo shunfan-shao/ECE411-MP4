@@ -46,7 +46,6 @@ rv32i_word regfilemux_out;
 // rv32i_word alu_out;
 rv32i_word pcmux_out = 32'h00000060;
 
-
 assign opcode = inst_decoder[STAGE_ID].opcode;
 assign funct3 = inst_decoder[STAGE_ID].funct3;
 assign funct7 = inst_decoder[STAGE_ID].funct7;
@@ -57,7 +56,6 @@ assign inst_addr = pc_out[STAGE_IF];
 assign data_read = inst_decoder[STAGE_MEM].opcode == op_load;
 assign data_write = inst_decoder[STAGE_MEM].opcode == op_store;
 assign data_addr = {alu_out[STAGE_MEM][31:2], 2'b00};
-
 
 // logic[2:0] funct3[STAGE_IF:STAGE_WB];
 // logic[6:0] funct7[STAGE_IF:STAGE_WB];
