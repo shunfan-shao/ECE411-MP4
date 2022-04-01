@@ -4,39 +4,58 @@ module mp4(
     input clk,
     input rst,
 
-    output logic       inst_read,
-    output rv32i_word  inst_addr,
-    input logic        inst_resp,
-    input rv32i_word  inst_rdata,
+    // output logic       inst_read,
+    // output rv32i_word  inst_addr,
+    // input logic        inst_resp,
+    // input rv32i_word  inst_rdata,
 
-    output logic data_read,
-    output logic data_write,
-    output logic [3:0] data_mbe,
-    output rv32i_word data_addr,
-    output rv32i_word data_wdata,
-    input logic data_resp,
-    input rv32i_word data_rdata
-    // input pmem_resp,
-    // input [63:0] pmem_rdata,
-    // output logic pmem_read,
-    // output logic pmem_write,
-    // output rv32i_word pmem_address,
-    // output [63:0] pmem_wdata
+    // output logic data_read,
+    // output logic data_write,
+    // output logic [3:0] data_mbe,
+    // output rv32i_word data_addr,
+    // output rv32i_word data_wdata,
+    // input logic data_resp,
+    // input rv32i_word data_rdata
+    input pmem_resp,
+    input [63:0] pmem_rdata,
+    output logic pmem_read,
+    output logic pmem_write,
+    output rv32i_word pmem_address,
+    output [63:0] pmem_wdata
 );
 
 /*************************** CPU <-> Cache Signals ****************************/
-rv32i_word mem_address, mem_rdata, mem_wdata;
-logic mem_read, mem_write, mem_resp;
-logic [3:0] mem_byte_enable;
+// rv32i_word mem_address, mem_rdata, mem_wdata;
+// logic mem_read, mem_write, mem_resp;
+// logic [3:0] mem_byte_enable;
 /******************************************************************************/
 
 /******************** Cache <-> Cacheline Adapter Signals *********************/
-rv32i_word cline_address;
-logic [255:0] cline_rdata, cline_wdata;
-logic cline_read, cline_write, cline_resp;
+// rv32i_word cline_address;
+// logic [255:0] cline_rdata, cline_wdata;
+// logic cline_read, cline_write, cline_resp;
 /******************************************************************************/
 
+logic       inst_read;
+rv32i_word  inst_addr;
+logic       inst_resp;
+rv32i_word inst_rdata;
+
+logic data_read;
+logic data_write;
+logic [3:0] data_mbe;
+rv32i_word data_addr;
+rv32i_word data_wdata;
+logic data_resp;
+rv32i_word data_rdata;
+
+
+cache_itf cache_itf(.*);
+
 // assign pmem_write = 1'b0;
+// assign pmem_read = rst ? 1'b0 : 1'b1;
+// assign mem_address = 32'h00000060;
+// assign pmem_address = {mem_address[31:2], 2'b00};
 
 // /* I Cache */
 // logic       inst_read;

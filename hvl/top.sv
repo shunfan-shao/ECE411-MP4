@@ -26,7 +26,7 @@ logic [31:0] pc_rdata_p1, pc_rdata_p2, pc_rdata_p3; // last 2 instructions
 // This section not required until CP2
 
 assign rvfi.commit = 0; // Set high when a valid instruction is modifying regfile or PC
-assign rvfi.halt = (rvfi.pc_rdata == pc_rdata_p3);
+assign rvfi.halt = 0; // (rvfi.pc_rdata == pc_rdata_p3);
 initial rvfi.order = 0;
 always @(posedge itf.clk iff rvfi.commit) rvfi.order <= rvfi.order + 1; // Modify for OoO
 
@@ -120,24 +120,24 @@ Please refer to tb_itf.sv for more information.
 mp4 dut(
     .clk          (itf.clk),
     .rst          (itf.rst),
-    .inst_read    (itf.inst_read),
-    .inst_addr    (itf.inst_addr),
-    .inst_resp    (itf.inst_resp),
-    .inst_rdata   (itf.inst_rdata),
+    // .inst_read    (itf.inst_read),
+    // .inst_addr    (itf.inst_addr),
+    // .inst_resp    (itf.inst_resp),
+    // .inst_rdata   (itf.inst_rdata),
 
-    .data_read(itf.data_read),
-    .data_write(itf.data_write),
-    .data_mbe(itf.data_mbe),
-    .data_addr(itf.data_addr),
-    .data_wdata(itf.data_wdata),
-    .data_resp(itf.data_resp),
-    .data_rdata(itf.data_rdata)
-    // .pmem_resp    (itf.mem_resp),
-    // .pmem_rdata   (itf.mem_rdata),
-    // .pmem_read    (itf.mem_read),
-    // .pmem_write   (itf.mem_write),
-    // .pmem_address (itf.mem_addr),
-    // .pmem_wdata   (itf.mem_wdata)
+    // .data_read(itf.data_read),
+    // .data_write(itf.data_write),
+    // .data_mbe(itf.data_mbe),
+    // .data_addr(itf.data_addr),
+    // .data_wdata(itf.data_wdata),
+    // .data_resp(itf.data_resp),
+    // .data_rdata(itf.data_rdata)
+    .pmem_resp    (itf.mem_resp),
+    .pmem_rdata   (itf.mem_rdata),
+    .pmem_read    (itf.mem_read),
+    .pmem_write   (itf.mem_write),
+    .pmem_address (itf.mem_addr),
+    .pmem_wdata   (itf.mem_wdata)
 );
 /***************************** End Instantiation *****************************/
 
