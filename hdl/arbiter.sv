@@ -85,24 +85,26 @@ always_comb
 begin : next_state_logic
     unique case (state) 
         s_idle: begin
-            if (dcline_read | dcline_write) begin
-                next_state = s_data;
-            end else if (icline_read) begin
+            if (icline_read) begin
                 next_state = s_inst;
+            end else if (dcline_read | dcline_write) begin
+                next_state = s_data;
             end else begin
                 next_state = s_idle;
             end
         end
         s_inst: begin
             if (cline_resp) begin
-                next_state = s_idle;
+                if (dcline_read | dcline_write) next_state = s_data;
+                else next_state = s_idle;
             end else begin
                 next_state = s_inst;
             end
         end 
         s_data: begin
             if (cline_resp) begin
-                next_state = s_idle;
+                if (icline_read) next_state = s_inst;
+                else next_state = s_idle;
             end else begin
                 next_state = s_data;
             end
