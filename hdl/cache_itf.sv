@@ -73,6 +73,46 @@ cache data_cache(
     .mem_rdata_cpu(data_rdata)
 );
 
+// param_cache inst_cache(
+//     .clk(clk),
+//     .rst(rst),
+
+//     .pmem_address(icline_address),
+//     .pmem_rdata(icline_rdata),
+//     .pmem_wdata(),
+//     .pmem_read(icline_read),
+//     .pmem_write(),
+//     .pmem_resp(icline_resp),
+
+//     .mem_address(inst_addr),
+//     .mem_rdata(inst_rdata),
+//     .mem_wdata(),
+//     .mem_read(inst_read),
+//     .mem_write(1'b0),
+//     .mem_byte_enable(),
+//     .mem_resp(inst_resp)
+// );
+
+// param_cache data_cache(
+//     .clk(clk),
+//     .rst(rst),
+
+//     .pmem_address(dcline_address),
+//     .pmem_rdata(dcline_rdata),
+//     .pmem_wdata(dcline_wdata),
+//     .pmem_read(dcline_read),
+//     .pmem_write(dcline_write),
+//     .pmem_resp(dcline_resp),
+
+//     .mem_address(data_addr),
+//     .mem_rdata(data_rdata),
+//     .mem_wdata(data_wdata),
+//     .mem_read(data_read),
+//     .mem_write(data_write),
+//     .mem_byte_enable(data_mbe),
+//     .mem_resp(data_resp)
+// );
+
 arbiter arbiter(.*);
 
 
