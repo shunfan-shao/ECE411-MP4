@@ -1,0 +1,17 @@
+Progress Report
+  For this checkpoint,
+    Matthew worked on the Forwarding System
+    Yvonne worked on the hazard detection and branch prediction systems
+    Shunfan worked on the Arbiter
+  
+  Testing Strategies
+    We used the test code given to us and analyzed the waveforms of certain signals and registers to debug it.
+  
+  Power and Timing analysis
+ 
+Roadmap
+  Advanced Features planning
+    Matthew will plan to focus on branch detection by implementing a local branch history table and a global 2-level branch history table that serve as inputs
+      to a tournament branch predictor and pair that with a return address stack to help improve branch accuracy
+      
+  
