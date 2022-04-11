@@ -84,7 +84,7 @@ pc_register #(.width(32))
 PC(
     .clk(clk),
     .rst(rst),
-    .load(~stall), 
+    .load(~(stall | stall_ifid)), 
     .in(pcmux_out),
     .out(pc_out[STAGE_IF])
 );
@@ -104,7 +104,7 @@ register #(.width(32))
 PC_IF_ID(
     .clk(clk),
     .rst(rst),
-    .load(~stall),
+    .load(~(stall | stall_ifid)),
     .in(pc_out[STAGE_IF]),
     .out(pc_out[STAGE_ID])
 );
@@ -113,7 +113,7 @@ register #(.width(32))
 PC_ID_EX(
     .clk(clk),
     .rst(rst),
-    .load(~stall),
+    .load(~(stall | stall_ifid)),
     .in(pc_out[STAGE_ID]),
     .out(pc_out[STAGE_EX])
 );
@@ -169,7 +169,7 @@ register #(.width($bits(rv32i_control_word)))
 Ctrl_ID_EX(
     .clk(clk),
     .rst(rst),
-    .load(~stall), 
+    .load(~(stall | stall_ifid)), 
     .in(inst_control[STAGE_ID]),
     .out(inst_control[STAGE_EX])
 );
@@ -216,7 +216,7 @@ register #(.width(32))
 RS1_ID_EX(
     .clk(clk),
     .rst(rst),
-    .load(~stall), 
+    .load(~(stall | stall_ifid)), 
     .in(rs1_out[STAGE_ID]),
     .out(rs1_out[STAGE_EX])
 );
@@ -225,7 +225,7 @@ register #(.width(32))
 RS2_ID_EX(
     .clk(clk),
     .rst(rst),
-    .load(~stall), 
+    .load(~(stall | stall_ifid)), 
     .in(rs2_out[STAGE_ID]),
     .out(rs2_out[STAGE_EX])
 );
@@ -274,7 +274,7 @@ ir
 IR(
     .clk(clk),
     .rst(rst),
-    .load(~stall),
+    .load(~(stall | stall_ifid)),
     .in(inst[STAGE_ID]),
     .funct3(inst_decoder[STAGE_ID].funct3),
     .funct7(inst_decoder[STAGE_ID].funct7),
@@ -378,14 +378,20 @@ always_comb begin : FORWARD
     endcase
 
     rs1_fwoutmux_sel = rsfwoutmux::rs;
-    if (inst_decoder[STAGE_MEM].rd != 5'd0) begin
+    if (inst_decoder[STAGE_WB].rd != 5'd0) begin
         if (inst_decoder[STAGE_WB].rd == inst_decoder[STAGE_EX].rs1) begin
-            rs1_fwoutmux_sel = rsfwoutmux::alu_wb_fr;
+            unique case (inst_control[STAGE_WB].opcode)
+                op_load: rs1_fwoutmux_sel = rsfwoutmux::mem_wb_fr;
+                default: rs1_fwoutmux_sel = rsfwoutmux::alu_wb_fr;
+            endcase
         end
+    end
+    if (inst_decoder[STAGE_MEM].rd != 5'd0) begin
         if (inst_decoder[STAGE_MEM].rd == inst_decoder[STAGE_EX].rs1) begin
 			rs1_fwoutmux_sel = rsfwoutmux::data_mem;
         end
     end
+
     unique case (rs1_fwoutmux_sel)
         rsfwoutmux::rs: rs1_fwoutmux_out = rs1_out[STAGE_EX];
         rsfwoutmux::data_mem: rs1_fwoutmux_out = alu_out[STAGE_MEM];
@@ -488,19 +494,30 @@ end
 
 always_comb begin : INST
 // always_ff @(posedge clk) begin
-    
-    stall_ifid = 1'b0;
-    if (inst_decoder[STAGE_EX].rd != 5'd0) begin
-        if (inst_control[STAGE_EX].opcode == rv32i_types::op_load && inst_decoder[STAGE_EX].rd == inst_decoder[STAGE_ID].rs1) begin
-			stall_ifid = 1'b1;
-        end
-    end
+
 
     inst[STAGE_ID] = inst_rdata;
     inst_control[STAGE_ID] = ctrl;
+    id_ex_decoder_word = inst_decoder[STAGE_ID];
 
     branch_taken = 1'b0;
     flush = 1'b0;
+    stall_ifid = 1'b0;
+    
+    if (inst_decoder[STAGE_EX].rd != 5'd0) begin
+        if (inst_control[STAGE_EX].opcode == rv32i_types::op_load && inst_decoder[STAGE_EX].rd == inst_decoder[STAGE_ID].rs1) begin
+			stall_ifid = 1'b1;
+
+            id_ex_decoder_word.rs1 = 0;
+            id_ex_decoder_word.rs2 = 0;
+            id_ex_decoder_word.rd = 0;
+            id_ex_decoder_word.j_imm = 32'h0000ffff; //TODO: for debugging purpose, remove afterwards
+            id_ex_decoder_word.opcode = op_imm;
+
+            inst_control[STAGE_ID].load_regfile = 1'b0; 
+            inst_control[STAGE_ID].opcode = rv32i_types::op_imm;
+        end
+    end
 
     unique case (inst_decoder[STAGE_EX].opcode)
         op_br: begin
@@ -538,7 +555,6 @@ always_comb begin : INST
     end
 
 
-    id_ex_decoder_word = inst_decoder[STAGE_ID];
 
     if (flush) begin
         id_ex_decoder_word.rs1 = 0;
