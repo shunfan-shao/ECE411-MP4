@@ -9,6 +9,7 @@ set mp4_path [pwd]
 
 vlog -reportprogress 300 -work work $mp4_path/../../hdl/rv32i_mux_types.sv
 vlog -reportprogress 300 -work work $mp4_path/../../hdl/rv32i_types.sv
+vlog -reportprogress 300 -work work $mp4_path/../../hdl/cache_types.sv
 vlog -reportprogress 300 -work work $mp4_path/../../hdl/given_cache/*.sv
 vlog -reportprogress 300 -work work $mp4_path/../../hdl/cpu/*.sv
 vlog -reportprogress 300 -work work $mp4_path/../../hdl/*.sv
@@ -19,6 +20,6 @@ vsim -t 1ps -gui -L rtl_work -L work mp4_tb
 
 view structure
 view signals
+do wave.do
 
-
-run 2000ns
+run 5000ns

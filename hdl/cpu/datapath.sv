@@ -366,6 +366,14 @@ always_comb begin : FORWARD
 	// end
 
     rs2_fwoutmux_sel = rsfwoutmux::rs;
+    if (inst_decoder[STAGE_WB].rd != 5'd0) begin
+        if (inst_decoder[STAGE_WB].rd == inst_decoder[STAGE_EX].rs2) begin
+            unique case (inst_control[STAGE_WB].opcode)
+                op_load: rs2_fwoutmux_sel = rsfwoutmux::mem_wb_fr;
+                default: rs2_fwoutmux_sel = rsfwoutmux::alu_wb_fr;
+            endcase
+        end
+    end
     if (inst_decoder[STAGE_MEM].rd != 5'd0) begin
         if (inst_decoder[STAGE_MEM].rd == inst_decoder[STAGE_EX].rs2) begin
 			rs2_fwoutmux_sel = rsfwoutmux::data_mem;
@@ -374,7 +382,8 @@ always_comb begin : FORWARD
     unique case (rs2_fwoutmux_sel)
         rsfwoutmux::rs: rs2_fwoutmux_out = rs2_out[STAGE_EX];
         rsfwoutmux::data_mem: rs2_fwoutmux_out = alu_out[STAGE_MEM];
-        // rsfwoutmux::data_wb: rs2_fwoutmux_out = alu_out[STAGE_WB];
+        rsfwoutmux::alu_wb_fr: rs2_fwoutmux_out = alu_out[STAGE_WB];
+        rsfwoutmux::mem_wb_fr: rs2_fwoutmux_out = mem_rdata[STAGE_WB]; //TODO: lb/lh cases
     endcase
 
     rs1_fwoutmux_sel = rsfwoutmux::rs;
@@ -391,7 +400,6 @@ always_comb begin : FORWARD
 			rs1_fwoutmux_sel = rsfwoutmux::data_mem;
         end
     end
-
     unique case (rs1_fwoutmux_sel)
         rsfwoutmux::rs: rs1_fwoutmux_out = rs1_out[STAGE_EX];
         rsfwoutmux::data_mem: rs1_fwoutmux_out = alu_out[STAGE_MEM];
