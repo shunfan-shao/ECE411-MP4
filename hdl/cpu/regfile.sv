@@ -12,7 +12,8 @@ module regfile
 //logic [31:0] data [32] /* synthesis ramstyle = "logic" */ = '{default:'0};
 logic [31:0] data [32];
 
-always_ff @(posedge clk)
+// always_ff @(posedge clk)
+always_comb
 begin
     if (rst)
     begin
@@ -26,10 +27,20 @@ begin
     end
 end
 
+// loading while reading
 always_comb
 begin
     reg_a = src_a ? data[src_a] : 0;
     reg_b = src_b ? data[src_b] : 0;
+
+    if (load) begin
+        if (src_a && src_a == dest) begin
+            reg_a = in;
+        end
+        if (src_b && src_b == dest) begin
+            reg_b = in;
+        end
+    end
 end
 
 endmodule : regfile

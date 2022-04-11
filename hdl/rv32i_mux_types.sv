@@ -51,3 +51,12 @@ typedef enum bit [3:0] {
     ,lhu       = 4'b1000  // unsigned halfword
 } regfilemux_sel_t;
 endpackage
+
+package rsfwoutmux;
+typedef enum bit [2:0] {
+	rs = 3'b000
+	,data_mem = 3'b001
+	,alu_wb_fr = 3'b010
+    ,mem_wb_fr = 3'b011
+} rsfwoutmux_sel_t;
+endpackage
