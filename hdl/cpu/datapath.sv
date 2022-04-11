@@ -578,6 +578,7 @@ always_comb begin : MUXES
     unique case (inst_control[STAGE_EX].cmpmux_sel)
         cmpmux::rs2_out: cpmmux_out = rs2_fwoutmux_out; //rs2_out[STAGE_EX];
         cmpmux::i_imm: cpmmux_out = inst_decoder[STAGE_EX].i_imm;
+        default: $display("Unexpected cmpmux_sel %d at %0t\n", inst_control[STAGE_EX].cmpmux_sel, $time);
     endcase
 
 
@@ -631,44 +632,6 @@ always_comb begin : MUXES
         end
         // default: $display("Unexpected regfilemux_sel %d at %0t\n", inst_control[STAGE_WB].regfilemux_sel, $time);
     endcase
-
-    //forwarding
-    unique case (inst_control[STAGE_MEM].regfilemux_sel)
-        regfilemux::u_imm: memregfilemux_out = inst_decoder[STAGE_MEM].u_imm;
-        regfilemux::br_en: memregfilemux_out =  {31'd0, br_en[STAGE_MEM]};
-        regfilemux::pc_plus4: memregfilemux_out = pc_out[STAGE_MEM] + 4;
-        regfilemux::alu_out: memregfilemux_out = alu_out[STAGE_MEM];
-        regfilemux::lw: memregfilemux_out = data_rdata; 
-        regfilemux::lh: begin
-            unique case (alu_out[STAGE_MEM][1:0])
-                2'b00: memregfilemux_out = {{16{data_rdata[15]}}, data_rdata[15:0]}; 
-                2'b10: memregfilemux_out = {{16{data_rdata[31]}}, data_rdata[31:16]};
-            endcase
-        end
-        regfilemux::lhu: begin
-            unique case (alu_out[STAGE_MEM][1:0])
-                2'b00: memregfilemux_out = {16'd0, data_rdata[15:0]}; 
-                2'b10: memregfilemux_out = {16'd0, data_rdata[31:16]};
-            endcase
-        end
-        regfilemux::lb: begin
-            unique case (alu_out[STAGE_MEM][1:0])
-                2'b00: memregfilemux_out = {{24{data_rdata[7]}}, data_rdata[7:0]};
-                2'b01: memregfilemux_out = {{24{data_rdata[15]}}, data_rdata[15:8]};
-                2'b10: memregfilemux_out = {{24{data_rdata[23]}}, data_rdata[23:16]};
-                2'b11: memregfilemux_out = {{24{data_rdata[31]}}, data_rdata[31:24]};
-            endcase
-        end
-        regfilemux::lbu: begin
-            unique case (alu_out[STAGE_MEM][1:0])
-                2'b00: memregfilemux_out = {24'd0, data_rdata[7:0]};
-                2'b01: memregfilemux_out = {24'd0, data_rdata[15:8]};
-                2'b10: memregfilemux_out = {24'd0, data_rdata[23:16]};
-                2'b11: memregfilemux_out = {24'd0, data_rdata[31:24]};
-            endcase
-        end
-        // default: $display("Unexpected regfilemux_sel %d at %0t\n", inst_control[STAGE_WB].regfilemux_sel, $time);
-   endcase
 end
 
 endmodule : datapath

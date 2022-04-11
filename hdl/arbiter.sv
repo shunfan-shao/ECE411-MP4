@@ -45,6 +45,13 @@ begin : state_actions
     cline_write = 1'b0;
     icline_resp = 1'b0;
     dcline_resp = 1'b0;
+
+    // default values to get around systhesis
+    cline_address = icline_address; 
+    cline_wdata = dcline_wdata;
+    icline_rdata = cline_rdata;
+    dcline_rdata = cline_rdata;
+
     unique case (state) 
         s_idle: begin
 
