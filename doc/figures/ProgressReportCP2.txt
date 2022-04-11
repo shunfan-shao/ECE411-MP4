@@ -8,7 +8,8 @@ Progress Report
     We used the test code given to us and analyzed the waveforms of certain signals and registers to debug it.
   
   Power and Timing analysis
- 
+      Slow 900mV 100C Model. Max Frequency: 112.23MHz
+      Total Power: 449.66mW   Dynamic Power: 77.27mW   Static Power: 322.27mW   I/O Power: 50.12mW
 Roadmap
   Advanced Features planning
     Matthew will plan to focus on branch detection by implementing a local branch history table and a global 2-level branch history table that serve as inputs
