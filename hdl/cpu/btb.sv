@@ -9,7 +9,8 @@ module btb #(
 
     input logic load,
 
-    input logic[pc_width-1:0] current_pc,
+    input logic[pc_width-1:0] pc_if,
+    input logic[pc_width-1:0] pc_ex,
     
     input logic br_en,
     input rv32i_word jump_address,
@@ -32,10 +33,21 @@ begin
         
         // only store address when branch is actually taken, otherwise just fall through
         // if (br_en) begin
-        pc_buffer[_tail] = current_pc;
+        pc_buffer[_tail] = pc_ex;
         predict_pc_buffer[_tail] = jump_address;
         _tail += 1;
         // end
+    end
+end
+
+always_comb begin
+    hit = 1'b0;
+    for (int i=0; i<buffer_width; ++i) begin
+        if (pc_buffer[i] == pc_if) begin
+            hit = 1'b1;
+            predict_address = predict_pc_buffer[i];
+            break;
+        end
     end
 end
 

@@ -65,6 +65,9 @@ rv32i_decoder_word id_ex_decoder_word;
 
 rv32i_word memregfilemux_out;
 
+logic btb_hit;
+rv32i_word btb_predict_address;
+
 // logic[2:0] funct3[STAGE_IF:STAGE_WB];
 // logic[6:0] funct7[STAGE_IF:STAGE_WB];
 // rv32i_opcode opcode[STAGE_IF:STAGE_WB];
@@ -319,14 +322,15 @@ CMP(
 );
 
 btb
-btb(
+BTB(
     .clk(clk),
     .load(1'b0), //TODO: current not used, may be needed
-    .current_pc(pc_out[STAGE_EX]),
+    .pc_if(pc_out[STAGE_IF]),
+    .pc_ex(pc_out[STAGE_EX]),
     .br_en(branch_taken), //whether branch is actually taken
     .jump_address(pcmux_out),
-    .hit(),
-    .predict_address()
+    .hit(btb_hit),
+    .predict_address(btb_predict_address)
 );
 
 always_comb begin : FORWARD
@@ -527,6 +531,10 @@ always_comb begin : INST
         end
     end
 
+    if (btb_hit) begin
+        pcmux_out = btb_predict_address;
+    end 
+    
     unique case (inst_decoder[STAGE_EX].opcode)
         op_br: begin
             pcmux_out = (br_en[STAGE_EX] ? alu_out[STAGE_EX] : pc_out[STAGE_IF] + 4);
