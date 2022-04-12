@@ -58,5 +58,6 @@ typedef enum bit [2:0] {
 	,data_mem = 3'b001
 	,alu_wb_fr = 3'b010
     ,mem_wb_fr = 3'b011
+    ,mem_uimm_fr = 3'b100
 } rsfwoutmux_sel_t;
 endpackage

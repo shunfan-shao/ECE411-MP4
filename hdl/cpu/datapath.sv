@@ -80,7 +80,8 @@ rv32i_word btb_predict_address;
 // logic [4:0] rs2[STAGE_IF:STAGE_WB];
 // logic [4:0] rd[STAGE_IF:STAGE_WB];
 
-
+rv32i_word inst_addr_minus_4; //TODO: remove this
+assign inst_addr_minus_4 = inst_addr - 12;
 // assign inst[STAGE_ID] = inst[STAGE_IF]; //TODO: unless stall
 
 pc_register #(.width(32))
@@ -401,7 +402,10 @@ always_comb begin : FORWARD
     end
     if (inst_decoder[STAGE_MEM].rd != 5'd0) begin
         if (inst_decoder[STAGE_MEM].rd == inst_decoder[STAGE_EX].rs1) begin
-			rs1_fwoutmux_sel = rsfwoutmux::data_mem;
+            unique case (inst_control[STAGE_MEM].opcode)
+                op_lui: rs1_fwoutmux_sel = rsfwoutmux::mem_uimm_fr;
+                default: rs1_fwoutmux_sel = rsfwoutmux::data_mem;
+            endcase
         end
     end
     unique case (rs1_fwoutmux_sel)
@@ -409,6 +413,7 @@ always_comb begin : FORWARD
         rsfwoutmux::data_mem: rs1_fwoutmux_out = alu_out[STAGE_MEM];
         rsfwoutmux::alu_wb_fr: rs1_fwoutmux_out = alu_out[STAGE_WB];
         rsfwoutmux::mem_wb_fr: rs1_fwoutmux_out = mem_rdata[STAGE_WB]; //TODO: lb/lh cases
+        rsfwoutmux::mem_uimm_fr: rs1_fwoutmux_out = inst_decoder[STAGE_MEM].u_imm; //TODO: lb/lh cases
     endcase
 
 	// if((inst_decoder[STAGE_MEM].rd == 5'd0) || (inst_decoder[STAGE_MEM].rd != inst_decoder[STAGE_EX].rs2)) begin
@@ -531,9 +536,9 @@ always_comb begin : INST
         end
     end
 
-    if (btb_hit) begin
-        pcmux_out = btb_predict_address;
-    end 
+    // if (btb_hit) begin
+    //     pcmux_out = btb_predict_address;
+    // end 
     
     unique case (inst_decoder[STAGE_EX].opcode)
         op_br: begin
@@ -600,7 +605,8 @@ always_comb begin : MUXES
         alumux::s_imm: alumux2_out = inst_decoder[STAGE_EX].s_imm;
         alumux::b_imm: alumux2_out = inst_decoder[STAGE_EX].b_imm;
         alumux::u_imm: alumux2_out = inst_decoder[STAGE_EX].u_imm;
-        alumux::rs2_out: alumux2_out = rs2_out[STAGE_EX];
+        alumux::j_imm: alumux2_out = inst_decoder[STAGE_EX].j_imm;
+        alumux::rs2_out: alumux2_out = rs2_fwoutmux_out; //rs2_out[STAGE_EX];
         // default: $display("unimplemented option %d at %0d\n", inst_control[STAGE_EX].alumux2_sel, `__LINE__);
     endcase
 

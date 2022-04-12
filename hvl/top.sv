@@ -24,9 +24,13 @@ logic [31:0] pc_rdata_p1, pc_rdata_p2, pc_rdata_p3; // last 2 instructions
 
 /************************ Signals necessary for monitor **********************/
 // This section not required until CP2
+assign rvfi.pc_rdata = dut.cpu.datapath.inst_addr;
+assign rvfi.pc_wdata = dut.cpu.datapath.pcmux_out;
 
-assign rvfi.commit = ~dut.cpu.datapath.stall; // Set high when a valid instruction is modifying regfile or PC
+// assign rvfi.commit = ~(dut.cpu.datapath.stall | dut.cpu.datapath.stall_ifid); // Set high when a valid instruction is modifying regfile or PC
+assign rvfi.commit = 1'b0; // Set high when a valid instruction is modifying regfile or PC
 assign rvfi.halt = (rvfi.pc_rdata == pc_rdata_p3);
+// assign rvfi.halt = (dut.cpu.datapath.inst_addr_minus_4 == 32'h34c);
 initial rvfi.order = 0;
 always @(posedge itf.clk iff rvfi.commit) rvfi.order <= rvfi.order + 1; // Modify for OoO
 
@@ -59,12 +63,10 @@ Memory:
 Please refer to rvfi_itf.sv for more information.
 */
 // assign branch_inst = dut.cpu.datapath.inst_decoder[STAGE_EX].opcode == op_br;
-assign rvfi.pc_rdata = dut.cpu.datapath.inst_addr;
-assign rvfi.pc_wdata = dut.cpu.datapath.pcmux_out;
 
 always_ff @(posedge itf.clk) 
 begin
-    if (~itf.rst && rvfi.commit) begin
+    if (~itf.rst && (~(dut.cpu.datapath.stall | dut.cpu.datapath.stall_ifid))) begin
         pc_rdata_p3 = pc_rdata_p2;
         pc_rdata_p2 = pc_rdata_p1;
         pc_rdata_p1 = rvfi.pc_rdata;

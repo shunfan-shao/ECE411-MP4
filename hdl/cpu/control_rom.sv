@@ -42,7 +42,7 @@ begin
         op_jalr: begin
             ctrl.load_regfile = 1'b1;
             ctrl.regfilemux_sel = regfilemux::pc_plus4;
-            ctrl.alumux1_sel = alumux::pc_out;
+            ctrl.alumux1_sel = alumux::rs1_out;
             ctrl.alumux2_sel = alumux::i_imm;
             ctrl.aluop = alu_add;
         end
