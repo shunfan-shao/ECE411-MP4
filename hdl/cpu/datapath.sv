@@ -41,6 +41,9 @@ rv32i_word mem_rdata[STAGE_WB:STAGE_WB];
 rv32i_word pc_out[STAGE_IF:STAGE_WB];
 logic br_en[STAGE_EX:STAGE_WB];
 
+logic btb_hit[STAGE_IF:STAGE_EX];
+rv32i_word btb_predict_address[STAGE_IF:STAGE_EX];
+
 rv32i_word cpmmux_out;
 rv32i_word alumux1_out, alumux2_out;
 rv32i_word regfilemux_out;
@@ -48,7 +51,7 @@ rv32i_word regfilemux_out;
 rv32i_word pcmux_out = 32'h00000060;
 
 rsfwoutmux::rsfwoutmux_sel_t rs1_fwoutmux_sel, rs2_fwoutmux_sel;
-rv32i_word rs1_fwoutmux_out, rs2_fwoutmux_out;
+rv32i_word rs1_fwoutmux_out, rs2_fwoutmux_out[STAGE_EX:STAGE_MEM];
 
 assign opcode = inst_decoder[STAGE_ID].opcode;
 assign funct3 = inst_decoder[STAGE_ID].funct3;
@@ -65,8 +68,6 @@ rv32i_decoder_word id_ex_decoder_word;
 
 rv32i_word memregfilemux_out;
 
-logic btb_hit;
-rv32i_word btb_predict_address;
 
 // logic[2:0] funct3[STAGE_IF:STAGE_WB];
 // logic[6:0] funct7[STAGE_IF:STAGE_WB];
@@ -271,6 +272,53 @@ BR_EN_MEM_WB(
     .in(br_en[STAGE_MEM]),
     .out(br_en[STAGE_WB])
 );
+
+/* BTB predict */
+register #(.width(1))
+BTB_IF_ID(
+    .clk(clk),
+    .rst(rst),
+    .load(~(stall | stall_ifid)),
+    .in(btb_hit[STAGE_IF]),
+    .out(btb_hit[STAGE_ID])
+);
+
+register #(.width(1))
+BTB_ID_EX(
+    .clk(clk),
+    .rst(rst),
+    .load(~(stall | stall_ifid)),
+    .in(btb_hit[STAGE_ID]),
+    .out(btb_hit[STAGE_EX])
+);
+
+register #(.width(32))
+BTB_PRED_ADDR_IF_ID(
+    .clk(clk),
+    .rst(rst),
+    .load(~(stall | stall_ifid)),
+    .in(btb_predict_address[STAGE_IF]),
+    .out(btb_predict_address[STAGE_ID])
+);
+
+register #(.width(32))
+BTB_PRED_ADDR_ID_EX(
+    .clk(clk),
+    .rst(rst),
+    .load(~(stall | stall_ifid)),
+    .in(btb_predict_address[STAGE_ID]),
+    .out(btb_predict_address[STAGE_EX])
+);
+
+register #(.width(32))
+rs2_fwoutmux_out_EX_MEM(
+    .clk(clk),
+    .rst(rst),
+    .load(~stall),
+    .in(rs2_fwoutmux_out[STAGE_EX]),
+    .out(rs2_fwoutmux_out[STAGE_MEM])
+);
+
 /* All Registers */
 
 
@@ -330,8 +378,8 @@ BTB(
     .pc_ex(pc_out[STAGE_EX]),
     .br_en(branch_taken), //whether branch is actually taken
     .jump_address(pcmux_out),
-    .hit(btb_hit),
-    .predict_address(btb_predict_address)
+    .hit(btb_hit[STAGE_IF]),
+    .predict_address(btb_predict_address[STAGE_IF])
 );
 
 always_comb begin : FORWARD
@@ -385,10 +433,10 @@ always_comb begin : FORWARD
         end
     end
     unique case (rs2_fwoutmux_sel)
-        rsfwoutmux::rs: rs2_fwoutmux_out = rs2_out[STAGE_EX];
-        rsfwoutmux::data_mem: rs2_fwoutmux_out = alu_out[STAGE_MEM];
-        rsfwoutmux::alu_wb_fr: rs2_fwoutmux_out = alu_out[STAGE_WB];
-        rsfwoutmux::mem_wb_fr: rs2_fwoutmux_out = mem_rdata[STAGE_WB]; //TODO: lb/lh cases
+        rsfwoutmux::rs: rs2_fwoutmux_out[STAGE_EX] = rs2_out[STAGE_EX];
+        rsfwoutmux::data_mem: rs2_fwoutmux_out[STAGE_EX] = alu_out[STAGE_MEM];
+        rsfwoutmux::alu_wb_fr: rs2_fwoutmux_out[STAGE_EX] = alu_out[STAGE_WB];
+        rsfwoutmux::mem_wb_fr: rs2_fwoutmux_out[STAGE_EX] = mem_rdata[STAGE_WB]; //TODO: lb/lh cases
     endcase
 
     rs1_fwoutmux_sel = rsfwoutmux::rs;
@@ -411,7 +459,7 @@ always_comb begin : FORWARD
     unique case (rs1_fwoutmux_sel)
         rsfwoutmux::rs: rs1_fwoutmux_out = rs1_out[STAGE_EX];
         rsfwoutmux::data_mem: rs1_fwoutmux_out = alu_out[STAGE_MEM];
-        rsfwoutmux::alu_wb_fr: rs1_fwoutmux_out = alu_out[STAGE_WB];
+        rsfwoutmux::alu_wb_fr: rs1_fwoutmux_out = regfilemux_out; //alu_out[STAGE_WB];
         rsfwoutmux::mem_wb_fr: rs1_fwoutmux_out = mem_rdata[STAGE_WB]; //TODO: lb/lh cases
         rsfwoutmux::mem_uimm_fr: rs1_fwoutmux_out = inst_decoder[STAGE_MEM].u_imm; //TODO: lb/lh cases
     endcase
@@ -442,18 +490,21 @@ end
 
 always_comb begin : MEM_W
     unique case (inst_decoder[STAGE_MEM].funct3) 
-        rv32i_types::sh: begin
-            data_wdata = rs2_out[STAGE_MEM] << {alu_out[STAGE_MEM][1:0], 3'd0};  //shift bits, so *8 to bytes
-            data_mbe = 4'b0011 << alu_out[STAGE_MEM][1:0];
-        end
-        rv32i_types::sb: begin
-            data_wdata = rs2_out[STAGE_MEM] << {alu_out[STAGE_MEM][1:0], 3'd0};
-            data_mbe = 4'b0001 << alu_out[STAGE_MEM][1:0];
-        end
-        default: begin  
-            data_wdata = rs2_out[STAGE_MEM];
+        // TODO: for simplicity, worry about only sw for now
+        // rv32i_types::sh: begin
+        //     data_wdata = rs2_out[STAGE_MEM] << {alu_out[STAGE_MEM][1:0], 3'd0};  //shift bits, so *8 to bytes
+        //     data_mbe = 4'b0011 << alu_out[STAGE_MEM][1:0];
+        // end
+        // rv32i_types::sb: begin
+        //     data_wdata = rs2_out[STAGE_MEM] << {alu_out[STAGE_MEM][1:0], 3'd0};
+        //     data_mbe = 4'b0001 << alu_out[STAGE_MEM][1:0];
+        // end
+        rv32i_types::sw: begin  
+            // data_addr = {alu_out[STAGE_EX][31:2], 2'b00};
+            data_wdata = rs2_fwoutmux_out[STAGE_MEM]; // rs2_out[STAGE_MEM];
             data_mbe = 4'b1111;
         end
+        default: ;
     endcase
 end
 
@@ -536,9 +587,10 @@ always_comb begin : INST
         end
     end
 
-    // if (btb_hit) begin
-    //     pcmux_out = btb_predict_address;
-    // end 
+    // if btb predicts a hit, immediately reflect the next predicted address
+    if (btb_hit[STAGE_IF]) begin
+        pcmux_out = btb_predict_address[STAGE_IF];
+    end 
     
     unique case (inst_decoder[STAGE_EX].opcode)
         op_br: begin
@@ -556,23 +608,35 @@ always_comb begin : INST
         default: pcmux_out = pc_out[STAGE_IF] + 4;
     endcase
 
+    // if branch is actually taken after calculation
     if (branch_taken) begin
-        // $display("flusing the pipleins at time = %t (eval %x && %x)\n", $realtime, inst_decoder[STAGE_EX].opcode, br_en[STAGE_EX]);
-        // flush the pipeline, replace with nop
-        // 2 instruction previous, just reset it
-        inst[STAGE_ID] = 32'h00000013; 
-        // for decoded instruction, reset instruction decoder
-        // inst_decoder[STAGE_ID].rs1 = 0;
-        // inst_decoder[STAGE_ID].rs2 = 0;
-        // inst_decoder[STAGE_ID].rd = 0;
-        // inst_decoder[STAGE_ID].j_imm = 32'h0000ffff;
-        // inst_decoder[STAGE_ID].opcode = op_imm;
+        // if (btb_hit[STAGE_EX] && pcmux_out == btb_predict_address[STAGE_EX]) begin
+        //     // predict correctly
+        //     if (btb_hit[STAGE_IF]) begin
+        //         pcmux_out = btb_predict_address[STAGE_IF];
+        //     end else begin  
+        //         pcmux_out = pc_out[STAGE_IF] + 4;
+        //     end
+        // end else begin
+            // flush the pipeline 
 
-        // TODO: for control state, as long as not loading regfile is fine? 
-        inst_control[STAGE_ID].load_regfile = 1'b0; 
+            // $display("flusing the pipleins at time = %t (eval %x && %x)\n", $realtime, inst_decoder[STAGE_EX].opcode, br_en[STAGE_EX]);
+            // flush the pipeline, replace with nop
+            // 2 instruction previous, just reset it
+            inst[STAGE_ID] = 32'h00000013; 
+            // for decoded instruction, reset instruction decoder
+            // inst_decoder[STAGE_ID].rs1 = 0;
+            // inst_decoder[STAGE_ID].rs2 = 0;
+            // inst_decoder[STAGE_ID].rd = 0;
+            // inst_decoder[STAGE_ID].j_imm = 32'h0000ffff;
+            // inst_decoder[STAGE_ID].opcode = op_imm;
 
-        //TODO: Flush and branch_taken is the same thing
-        flush = 1'b1;
+            // TODO: for control state, as long as not loading regfile is fine? 
+            inst_control[STAGE_ID].load_regfile = 1'b0; 
+
+            //TODO: Flush and branch_taken is the same thing
+            flush = 1'b1;
+        // end
     end
 
 
@@ -589,7 +653,7 @@ end
 always_comb begin : MUXES
 
     unique case (inst_control[STAGE_EX].cmpmux_sel)
-        cmpmux::rs2_out: cpmmux_out = rs2_fwoutmux_out; //rs2_out[STAGE_EX];
+        cmpmux::rs2_out: cpmmux_out = rs2_fwoutmux_out[STAGE_EX]; //rs2_out[STAGE_EX];
         cmpmux::i_imm: cpmmux_out = inst_decoder[STAGE_EX].i_imm;
         default: $display("Unexpected cmpmux_sel %d at %0t\n", inst_control[STAGE_EX].cmpmux_sel, $time);
     endcase
@@ -606,7 +670,7 @@ always_comb begin : MUXES
         alumux::b_imm: alumux2_out = inst_decoder[STAGE_EX].b_imm;
         alumux::u_imm: alumux2_out = inst_decoder[STAGE_EX].u_imm;
         alumux::j_imm: alumux2_out = inst_decoder[STAGE_EX].j_imm;
-        alumux::rs2_out: alumux2_out = rs2_fwoutmux_out; //rs2_out[STAGE_EX];
+        alumux::rs2_out: alumux2_out = rs2_fwoutmux_out[STAGE_EX]; //rs2_out[STAGE_EX];
         // default: $display("unimplemented option %d at %0d\n", inst_control[STAGE_EX].alumux2_sel, `__LINE__);
     endcase
 

@@ -30,7 +30,7 @@ assign rvfi.pc_wdata = dut.cpu.datapath.pcmux_out;
 // assign rvfi.commit = ~(dut.cpu.datapath.stall | dut.cpu.datapath.stall_ifid); // Set high when a valid instruction is modifying regfile or PC
 assign rvfi.commit = 1'b0; // Set high when a valid instruction is modifying regfile or PC
 assign rvfi.halt = (rvfi.pc_rdata == pc_rdata_p3);
-// assign rvfi.halt = (dut.cpu.datapath.inst_addr_minus_4 == 32'h34c);
+// assign rvfi.halt = (dut.cpu.datapath.inst_addr_minus_4 == 32'h204);
 initial rvfi.order = 0;
 always @(posedge itf.clk iff rvfi.commit) rvfi.order <= rvfi.order + 1; // Modify for OoO
 

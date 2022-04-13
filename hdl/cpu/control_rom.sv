@@ -139,7 +139,7 @@ begin
 
         default: begin
             ctrl = 0;   /* Unknown opcode, set control word to zero */
-            $display("current opcode %x\n", opcode);
+            $display("current opcode %x at time %0t\n", opcode, $time);
         end
     endcase
 end
