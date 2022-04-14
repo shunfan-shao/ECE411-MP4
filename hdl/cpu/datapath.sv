@@ -82,7 +82,7 @@ rv32i_word memregfilemux_out;
 // logic [4:0] rd[STAGE_IF:STAGE_WB];
 
 rv32i_word inst_addr_minus_4; //TODO: remove this
-assign inst_addr_minus_4 = inst_addr - 12;
+assign inst_addr_minus_4 = inst_addr + 32;
 // assign inst[STAGE_ID] = inst[STAGE_IF]; //TODO: unless stall
 
 pc_register #(.width(32))
@@ -439,6 +439,7 @@ always_comb begin : FORWARD
         rsfwoutmux::mem_wb_fr: rs2_fwoutmux_out[STAGE_EX] = mem_rdata[STAGE_WB]; //TODO: lb/lh cases
     endcase
 
+    // TODO: if wb forwarding, use regfilemux_out is sufficient
     rs1_fwoutmux_sel = rsfwoutmux::rs;
     if (inst_decoder[STAGE_WB].rd != 5'd0) begin
         if (inst_decoder[STAGE_WB].rd == inst_decoder[STAGE_EX].rs1) begin
@@ -456,13 +457,34 @@ always_comb begin : FORWARD
             endcase
         end
     end
-    unique case (rs1_fwoutmux_sel)
-        rsfwoutmux::rs: rs1_fwoutmux_out = rs1_out[STAGE_EX];
-        rsfwoutmux::data_mem: rs1_fwoutmux_out = alu_out[STAGE_MEM];
-        rsfwoutmux::alu_wb_fr: rs1_fwoutmux_out = regfilemux_out; //alu_out[STAGE_WB];
-        rsfwoutmux::mem_wb_fr: rs1_fwoutmux_out = mem_rdata[STAGE_WB]; //TODO: lb/lh cases
-        rsfwoutmux::mem_uimm_fr: rs1_fwoutmux_out = inst_decoder[STAGE_MEM].u_imm; //TODO: lb/lh cases
-    endcase
+    // unique case (rs1_fwoutmux_sel)
+    //     rsfwoutmux::rs: rs1_fwoutmux_out = rs1_out[STAGE_EX];
+    //     rsfwoutmux::data_mem: rs1_fwoutmux_out = alu_out[STAGE_MEM];
+    //     rsfwoutmux::alu_wb_fr: rs1_fwoutmux_out = regfilemux_out; //alu_out[STAGE_WB];
+    //     rsfwoutmux::mem_wb_fr: rs1_fwoutmux_out = regfilemux_out; //mem_rdata[STAGE_WB]; //TODO: lb/lh cases
+    //     rsfwoutmux::mem_uimm_fr: rs1_fwoutmux_out = inst_decoder[STAGE_MEM].u_imm; // for lui cases, eg: auipc, lw
+    // endcase
+    rs1_fwoutmux_out = rs1_out[STAGE_EX];
+    if (inst_decoder[STAGE_WB].rd != 5'd0) begin
+        if (inst_decoder[STAGE_WB].rd == inst_decoder[STAGE_EX].rs1) begin
+            rs1_fwoutmux_out = regfilemux_out;
+        end
+    end
+    if (inst_decoder[STAGE_MEM].rd != 5'd0) begin
+        if (inst_decoder[STAGE_MEM].rd == inst_decoder[STAGE_EX].rs1) begin
+            unique case (inst_control[STAGE_MEM].regfilemux_sel) 
+                regfilemux::alu_out: rs1_fwoutmux_out = alu_out[STAGE_MEM];
+                regfilemux::u_imm: rs1_fwoutmux_out = inst_decoder[STAGE_MEM].u_imm;
+                regfilemux::br_en: rs1_fwoutmux_out = {31'd0, br_en[STAGE_MEM]};
+                default: rs1_fwoutmux_out = alu_out[STAGE_MEM];
+            endcase
+            // unique case (inst_control[STAGE_MEM].opcode)
+            //     op_lui: rs1_fwoutmux_sel = rsfwoutmux::mem_uimm_fr;
+            //     default: rs1_fwoutmux_sel = rsfwoutmux::data_mem;
+            // endcase
+        end
+    end
+
 
 	// if((inst_decoder[STAGE_MEM].rd == 5'd0) || (inst_decoder[STAGE_MEM].rd != inst_decoder[STAGE_EX].rs2)) begin
 	// 	if(inst_decoder[STAGE_WB].rd == 5'b00000 || (inst_decoder[STAGE_WB].rd != inst_decoder[STAGE_EX].rs2)) begin
@@ -648,10 +670,15 @@ always_comb begin : INST
         id_ex_decoder_word.j_imm = 32'h0000ffff;
         id_ex_decoder_word.opcode = op_imm;
     end
+
+    // Sometimes the register values are nevered used and should not be forwarded
+    unique case (id_ex_decoder_word.opcode)
+        op_br: id_ex_decoder_word.rd = 0;
+        default: ;
+    endcase
 end
 
 always_comb begin : MUXES
-
     unique case (inst_control[STAGE_EX].cmpmux_sel)
         cmpmux::rs2_out: cpmmux_out = rs2_fwoutmux_out[STAGE_EX]; //rs2_out[STAGE_EX];
         cmpmux::i_imm: cpmmux_out = inst_decoder[STAGE_EX].i_imm;
