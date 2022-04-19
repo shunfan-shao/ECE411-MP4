@@ -44,6 +44,11 @@ logic br_en[STAGE_EX:STAGE_WB];
 logic btb_hit[STAGE_IF:STAGE_EX];
 rv32i_word btb_predict_address[STAGE_IF:STAGE_EX];
 
+rv32i_word alu_ex_out;
+logic [63:0] mult_out;
+rv32i_word quotient;
+rv32i_word remainder;
+
 rv32i_word cpmmux_out;
 rv32i_word alumux1_out, alumux2_out;
 rv32i_word regfilemux_out;
@@ -82,7 +87,7 @@ rv32i_word memregfilemux_out;
 // logic [4:0] rd[STAGE_IF:STAGE_WB];
 
 rv32i_word inst_addr_minus_4; //TODO: remove this
-assign inst_addr_minus_4 = inst_addr + 32;
+assign inst_addr_minus_4 = inst_addr + 32'ha0;
 // assign inst[STAGE_ID] = inst[STAGE_IF]; //TODO: unless stall
 
 pc_register #(.width(32))
@@ -346,7 +351,7 @@ ALU(
     .aluop(inst_control[STAGE_EX].aluop),
     .a(alumux1_out),
     .b(alumux2_out),
-    .f(alu_out[STAGE_EX])
+    .f(alu_ex_out)
 );
 
 regfile
@@ -381,6 +386,23 @@ BTB(
     .hit(btb_hit[STAGE_IF]),
     .predict_address(btb_predict_address[STAGE_IF])
 );
+
+// multiplier
+// MULT(
+//     .a(alumux1_out),
+//     .b(alumux2_out),
+//     .sign(muldiv_funct3_t ' (inst_decoder[STAGE_EX].funct3)),
+//     .f(mult_out)
+// );
+
+// divider
+// DIV(
+//     .a(alumux1_out),
+//     .b(alumux2_out),
+//     .sign(muldiv_funct3_t ' (inst_decoder[STAGE_EX].funct3)),
+//     .q(quotient),
+//     .r(remainder)
+// ); 
 
 always_comb begin : FORWARD
 	//rs1
@@ -511,76 +533,27 @@ always_comb begin : STALL
 end
 
 always_comb begin : MEM_W
-    unique case (inst_decoder[STAGE_MEM].funct3) 
-        // TODO: for simplicity, worry about only sw for now
-        // rv32i_types::sh: begin
-        //     data_wdata = rs2_out[STAGE_MEM] << {alu_out[STAGE_MEM][1:0], 3'd0};  //shift bits, so *8 to bytes
-        //     data_mbe = 4'b0011 << alu_out[STAGE_MEM][1:0];
-        // end
-        // rv32i_types::sb: begin
-        //     data_wdata = rs2_out[STAGE_MEM] << {alu_out[STAGE_MEM][1:0], 3'd0};
-        //     data_mbe = 4'b0001 << alu_out[STAGE_MEM][1:0];
-        // end
-        rv32i_types::sw: begin  
-            // data_addr = {alu_out[STAGE_EX][31:2], 2'b00};
-            data_wdata = rs2_fwoutmux_out[STAGE_MEM]; // rs2_out[STAGE_MEM];
-            data_mbe = 4'b1111;
-        end
-        default: ;
-    endcase
+    data_wdata = rs2_fwoutmux_out[STAGE_MEM]; 
+    data_mbe = 4'b1111;
+    // unique case (inst_decoder[STAGE_MEM].funct3) 
+    //     // TODO: for simplicity, worry about only sw for now
+    //     // rv32i_types::sh: begin
+    //     //     data_wdata = rs2_out[STAGE_MEM] << {alu_out[STAGE_MEM][1:0], 3'd0};  //shift bits, so *8 to bytes
+    //     //     data_mbe = 4'b0011 << alu_out[STAGE_MEM][1:0];
+    //     // end
+    //     // rv32i_types::sb: begin
+    //     //     data_wdata = rs2_out[STAGE_MEM] << {alu_out[STAGE_MEM][1:0], 3'd0};
+    //     //     data_mbe = 4'b0001 << alu_out[STAGE_MEM][1:0];
+    //     // end
+    //     rv32i_types::sw: begin  
+    //         // data_addr = {alu_out[STAGE_EX][31:2], 2'b00};
+    //         data_wdata = rs2_fwoutmux_out[STAGE_MEM]; // rs2_out[STAGE_MEM];
+    //         data_mbe = 4'b1111;
+    //     end
+    //     default: ;
+    // endcase
 end
 
-// always_ff @(posedge clk) begin
-// // always_comb begin : FLUSH
-
-//     branch_taken = 1'b0;
-//     unique case (inst_decoder[STAGE_EX].opcode)
-//         op_br: begin
-//             branch_taken = br_en[STAGE_EX];
-//         end
-//         op_jal:  begin
-//             branch_taken = 1'b1;
-//         end
-//         op_jalr: begin
-//             branch_taken = 1'b1;
-//         end
-//         default: branch_taken = 1'b0;
-//     endcase
-// end
-
-// always_comb begin : BRANCH
-
-//     inst[STAGE_ID] = inst_rdata;
-//     inst_control[STAGE_ID] = ctrl;
-
-//     unique case (inst_decoder[STAGE_EX].opcode)
-//         op_br: begin
-//             pcmux_out = (br_en[STAGE_EX] ? alu_out[STAGE_EX] : pc_out[STAGE_IF] + 4);
-//         end
-//         op_jal:  begin
-//             pcmux_out = alu_out[STAGE_EX];
-//         end
-//         op_jalr: begin
-//             pcmux_out = {alu_out[STAGE_EX][31:1], 1'b0};
-//         end
-//         default: pcmux_out = pc_out[STAGE_IF] + 4;
-//     endcase
-
-//     if (branch_taken) begin
-//         $display("flusing the pipleins at time =%t\n", $realtime);
-//         // flush the pipeline, replace with nop
-//         // 2 instruction previous, just reset it
-//         inst[STAGE_ID] = 32'h00000013; 
-//         // for decoded instruction, reset instruction decoder
-//         inst_decoder[STAGE_ID].rs1 = 0;
-//         inst_decoder[STAGE_ID].rs2 = 0;
-//         inst_decoder[STAGE_ID].rd = 0;
-//         inst_decoder[STAGE_ID].opcode = op_imm;
-
-//         // TODO: for control state, as long as not loading regfile is fine? 
-//         inst_control[STAGE_ID].load_regfile = 1'b0; 
-//     end
-// end
 
 always_comb begin : INST
 // always_ff @(posedge clk) begin
@@ -595,7 +568,8 @@ always_comb begin : INST
     stall_ifid = 1'b0;
     
     if (inst_decoder[STAGE_EX].rd != 5'd0) begin
-        if (inst_control[STAGE_EX].opcode == rv32i_types::op_load && inst_decoder[STAGE_EX].rd == inst_decoder[STAGE_ID].rs1) begin
+        if (inst_control[STAGE_EX].opcode == rv32i_types::op_load &&
+            (inst_decoder[STAGE_EX].rd == inst_decoder[STAGE_ID].rs1 || inst_decoder[STAGE_EX].rd == inst_decoder[STAGE_ID].rs2)) begin
 			stall_ifid = 1'b1;
 
             id_ex_decoder_word.rs1 = 0;
@@ -616,15 +590,15 @@ always_comb begin : INST
     
     unique case (inst_decoder[STAGE_EX].opcode)
         op_br: begin
-            pcmux_out = (br_en[STAGE_EX] ? alu_out[STAGE_EX] : pc_out[STAGE_IF] + 4);
+            pcmux_out = (br_en[STAGE_EX] ? alu_ex_out : pc_out[STAGE_IF] + 4);
             branch_taken = br_en[STAGE_EX];
         end
         op_jal:  begin
-            pcmux_out = alu_out[STAGE_EX];
+            pcmux_out = alu_ex_out;
             branch_taken = 1'b1;
         end
         op_jalr: begin
-            pcmux_out = {alu_out[STAGE_EX][31:1], 1'b0};
+            pcmux_out = {alu_ex_out[31:1], 1'b0};
             branch_taken = 1'b1;
         end
         default: pcmux_out = pc_out[STAGE_IF] + 4;
@@ -676,6 +650,36 @@ always_comb begin : INST
         op_br: id_ex_decoder_word.rd = 0;
         default: ;
     endcase
+end
+
+always_comb begin : ALUMUXSEL
+    alu_out[STAGE_EX] = alu_ex_out;
+    if (inst_decoder[STAGE_EX].opcode == rv32i_types::op_reg && inst_decoder[STAGE_EX].funct7 == 7'b0000001) begin
+        unique case (inst_decoder[STAGE_EX].funct3) 
+            rv32i_types::mul: begin 
+                // $display("mul at %0t\n", $time);
+                alu_out[STAGE_EX] = mult_out[31:0];
+            end
+            rv32i_types::div, rv32i_types::divu: begin 
+                // $display("div at %0t\n", $time);
+                alu_out[STAGE_EX] = quotient;
+            end
+            rv32i_types::rem: begin 
+                // $display("rem at %0t\n", $time);
+                alu_out[STAGE_EX] = remainder;
+            end
+            rv32i_types::remu: begin 
+                // $display("remu at %0t\n", $time);
+                alu_out[STAGE_EX] = remainder;
+            end
+            rv32i_types::mulhu: begin 
+                // $display("mulh at %0t\n", $time);
+                alu_out[STAGE_EX] = mult_out[63:32];
+            end
+            default: alu_out[STAGE_EX] = alu_ex_out;
+        endcase
+    end
+
 end
 
 always_comb begin : MUXES
