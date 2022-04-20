@@ -6,9 +6,41 @@
 	.hidden	_start
 	.type	_start, @function
 _start:
+    lui	x2,0x84000
+    addi	x2,x2,-704
     li x1, 0x11
     li x5, 0x22
     li x6, 0x33
+
+
+    sw x1, 0(x2)
+
+    nop
+    nop
+
+    lw x5, 0(x2)
+
+    sw x6, 700(x2)
+
+
+    sw x5, 500(x2) 
+
+
+    lw x9, 700(x2)
+
+
+    lw x10, 0(x2)
+
+
+    mul x8, x1, x5
+
+    nop
+    nop
+    nop
+    nop
+    nop
+
+
     lui     x2,0x84000
     add    x2,x2,-16
     sw      x1,12(x2)

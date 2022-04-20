@@ -45,7 +45,9 @@ logic btb_hit[STAGE_IF:STAGE_EX];
 rv32i_word btb_predict_address[STAGE_IF:STAGE_EX];
 
 rv32i_word alu_ex_out;
+logic mult_start, mult_done;
 logic [63:0] mult_out;
+logic div_start, div_done;
 rv32i_word quotient;
 rv32i_word remainder;
 
@@ -87,7 +89,7 @@ rv32i_word memregfilemux_out;
 // logic [4:0] rd[STAGE_IF:STAGE_WB];
 
 rv32i_word inst_addr_minus_4; //TODO: remove this
-assign inst_addr_minus_4 = inst_addr + 32'ha0;
+assign inst_addr_minus_4 = inst_addr - 12;
 // assign inst[STAGE_ID] = inst[STAGE_IF]; //TODO: unless stall
 
 pc_register #(.width(32))
@@ -375,34 +377,39 @@ CMP(
     .br_en(br_en[STAGE_EX])
 );
 
-btb
-BTB(
-    .clk(clk),
-    .load(1'b0), //TODO: current not used, may be needed
-    .pc_if(pc_out[STAGE_IF]),
-    .pc_ex(pc_out[STAGE_EX]),
-    .br_en(branch_taken), //whether branch is actually taken
-    .jump_address(pcmux_out),
-    .hit(btb_hit[STAGE_IF]),
-    .predict_address(btb_predict_address[STAGE_IF])
-);
-
-// multiplier
-// MULT(
-//     .a(alumux1_out),
-//     .b(alumux2_out),
-//     .sign(muldiv_funct3_t ' (inst_decoder[STAGE_EX].funct3)),
-//     .f(mult_out)
+// btb
+// BTB(
+//     .clk(clk),
+//     .load(1'b0), //TODO: current not used, may be needed
+//     .pc_if(pc_out[STAGE_IF]),
+//     .pc_ex(pc_out[STAGE_EX]),
+//     .br_en(branch_taken), //whether branch is actually taken
+//     .jump_address(pcmux_out),
+//     .hit(btb_hit[STAGE_IF]),
+//     .predict_address(btb_predict_address[STAGE_IF])
 // );
 
-// divider
-// DIV(
-//     .a(alumux1_out),
-//     .b(alumux2_out),
-//     .sign(muldiv_funct3_t ' (inst_decoder[STAGE_EX].funct3)),
-//     .q(quotient),
-//     .r(remainder)
-// ); 
+multicycle_multiplier
+MULT(
+    .clk(clk),
+    .multiplicand(alumux1_out),
+    .multiplier(alumux2_out),
+    .product(mult_out),
+    .calc(mult_start),
+    .done(mult_done)
+);
+
+multicycle_divider
+DIV(
+    .clk(clk),
+    .rst(rst),
+    .dividend(alumux1_out),
+    .divisor(alumux2_out),
+    .quotient(quotient),
+    .remainder(remainder),
+    .calc(div_start),
+    .done(div_done)
+); 
 
 always_comb begin : FORWARD
 	//rs1
@@ -521,12 +528,30 @@ end
 
 always_comb begin : STALL
     stall = 1'b0;
+    mult_start = 1'b0;
+    div_start = 1'b0;
+    if (inst_decoder[STAGE_EX].opcode == rv32i_types::op_reg && inst_decoder[STAGE_EX].funct7 == 7'b0000001) begin
+        unique case (inst_decoder[STAGE_EX].funct3) 
+            rv32i_types::mul, mulhu: begin 
+                mult_start = 1'b1;
+            end
+            rv32i_types::div, divu, rem, remu: begin 
+                div_start = 1'b1;
+            end
+
+            default: ;
+        endcase
+    end
 
     if (inst_read & ~inst_resp) begin
         stall = 1'b1;
     end else if (data_read & ~data_resp) begin
         stall = 1'b1;
     end else if (data_write & ~data_resp) begin
+        stall = 1'b1;
+    end else if (mult_start & ~mult_done) begin
+        stall = 1'b1;
+    end else if (div_start & ~div_done) begin
         stall = 1'b1;
     end
 
@@ -584,9 +609,9 @@ always_comb begin : INST
     end
 
     // if btb predicts a hit, immediately reflect the next predicted address
-    if (btb_hit[STAGE_IF]) begin
-        pcmux_out = btb_predict_address[STAGE_IF];
-    end 
+    // if (btb_hit[STAGE_IF]) begin
+    //     pcmux_out = btb_predict_address[STAGE_IF];
+    // end 
     
     unique case (inst_decoder[STAGE_EX].opcode)
         op_br: begin
@@ -658,6 +683,7 @@ always_comb begin : ALUMUXSEL
         unique case (inst_decoder[STAGE_EX].funct3) 
             rv32i_types::mul: begin 
                 // $display("mul at %0t\n", $time);
+                // $display("mul %d * %d = %d", alumux1_out, alumux2_out, mult_out);
                 alu_out[STAGE_EX] = mult_out[31:0];
             end
             rv32i_types::div, rv32i_types::divu: begin 
@@ -673,6 +699,7 @@ always_comb begin : ALUMUXSEL
                 alu_out[STAGE_EX] = remainder;
             end
             rv32i_types::mulhu: begin 
+                // $display("mulhu %d * %d = %d", alumux1_out, alumux2_out, mult_out);
                 // $display("mulh at %0t\n", $time);
                 alu_out[STAGE_EX] = mult_out[63:32];
             end
