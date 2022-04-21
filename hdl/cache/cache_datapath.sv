@@ -237,6 +237,9 @@ always_comb begin
             1'b1: begin
                 for (int i=0; i<num_ways; ++i) begin
                     datain[i] = ba_mem_wdata256;
+                    // if (mem_address == 32'h83fffda0) begin
+                    //     $display("at %t write to mem %x with data %x", $time, mem_address, ba_mem_wdata256);
+                    // end
                 end
                 // datain[next_lru_idx] = ba_mem_wdata256;
                 // datain[0] = ba_mem_wdata256;
@@ -249,6 +252,7 @@ always_comb begin
             cache_types::raddr: pmem_address = {mem_address[31:5], 5'd0};
             cache_types::waddr: begin
                 pmem_address = {tag_out_bits[least_recent_used_idx], addr_index, 5'd0};
+                // $display("at %t kick out addr %x  ", $time, pmem_address);
             end
             default: ;
       endcase

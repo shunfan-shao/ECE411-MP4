@@ -54,7 +54,7 @@ enum int unsigned {
     evict
 } state, next_state;
 
-function void set_next_lru_bits(int touch_idx);
+function automatic void set_next_lru_bits(int touch_idx);
     for (int i=num_ways, last_idx = touch_idx + 1, curr_idx = (num_ways / 2 - 1) + touch_idx / 2; i>1; i/=2) begin
         next_lru_bits[curr_idx] = (last_idx - 1) % 2;
         last_idx = curr_idx;
@@ -62,7 +62,7 @@ function void set_next_lru_bits(int touch_idx);
     end
 endfunction
 
-function void set_defaults();
+function automatic void set_defaults();
     pmem_read = 1'b0;
     pmem_write = 1'b0;
     load_valid = 1'b0;
@@ -119,7 +119,7 @@ always_comb begin
 
 
     set_defaults();
-    case (state)
+    unique case (state)
         check_hit: begin
             if (readop | writeop) begin
                 if (is_hit) begin
@@ -137,34 +137,43 @@ always_comb begin
                         load_data_sel[next_lru_idx] = cache_types::loaden;
                     end
                 end 
-            end
+            end 
         end
         read_mem: begin
             pmem_read = 1'b1;
 
             if (pmem_resp) begin
-                mem_resp = 1'b1;
+                if (readop) mem_resp = 1'b1;
                 load_lru = 1'b1;
 
-                for (int i=0; i<num_ways; ++i) begin
-                    if (~valid_bits[i]) begin
-                        load_valid = 1'b1;
-                        next_valid_bits[i] = 1'b1;
-                        hit_idx = i;
-                        set_next_lru_bits(hit_idx);
-                        break;
-                    end
-                end
+                // for (int i=0; i<num_ways; ++i) begin
+                //     if (~valid_bits[i]) begin
+                //         load_valid = 1'b1;
+                //         next_valid_bits[i] = 1'b1;
+                //         hit_idx = i;
+                //         set_next_lru_bits(hit_idx);
+                //         $display("at time %t setting bit %d to 1", $time, i);
+                //         break;
+                //     end
+                // end
+
                 if (hit_idx == -1) begin
                     hit_idx = 1;
                     for (int i=num_ways, curr_idx=0; i>1; i/=2) begin
-                        next_lru_bits[curr_idx] = ~next_lru_bits[curr_idx];
+                        // $display("%t current index[%d] = %d intial next %d(%d)", $time, i, curr_idx, next_lru_bits[curr_idx], lru_bits[curr_idx]);
+                        next_lru_bits[curr_idx] = ~lru_bits[curr_idx];
                         hit_idx += next_lru_bits[curr_idx] * (i / 2);
                         curr_idx = (curr_idx + 1) * 2 - (1 - next_lru_bits[curr_idx]);
                     end
                     hit_idx -= 1;
                 end 
                 next_lru_idx = hit_idx;
+
+                if (~valid_bits[hit_idx]) begin
+                    load_valid = 1'b1;
+                    next_valid_bits[hit_idx] = 1'b1;
+                end
+                // set_next_lru_bits(hit_idx);
 
                 ba_data_sel = 1'b1;
 
@@ -216,99 +225,8 @@ always_comb begin
                 // need to recalculate next lru idx
             end
         end
-        ready: begin
-            // This is mem_resp ready, only reaches this state when not hit
-            /* TODO: should only reach this state when not hit? */
-
-            mem_resp = 1'b1; //CPU mem_resp
-            load_lru = 1'b1;
-            load_valid = 1'b1;
-            // if (is_hit) begin
-            //     if (hit_bits[0]) begin
-            //         next_lru = 1'b0;
-            //     end else begin
-            //         next_lru = 1'b1;
-            //     end
-            //     ba_data_sel = 1'b0;
-            // end else begin
-            // for (int i=0; i<num_ways; ++i) begin
-
-            // end
-
-
-            // If cache miss, first check if there is a invalid (free) entry
-            for (int i=0; i<num_ways; ++i) begin
-                if (~valid_bits[i]) begin
-                    next_valid_bits[i] = 1'b1;
-
-                    hit_idx = i;
-                    set_next_lru_bits(hit_idx);
-
-                    break;
-                end
-            end
-
-            // All bits are valid and not hit, needs to evict
-            if (hit_idx == -1) begin
-                hit_idx = 1;
-                for (int i=num_ways, curr_idx=0; i>1; i/=2) begin
-                    next_lru_bits[curr_idx] = ~next_lru_bits[curr_idx];
-                    hit_idx += next_lru_bits[curr_idx] * (i / 2);
-                    curr_idx = (curr_idx + 1) * 2 - (1 - next_lru_bits[curr_idx]);
-                end
-                hit_idx -= 1;
-            end 
-
-
-            // REMOVE THIS
-            // if (~valid_bits[0]) begin
-            //     next_lru = 1'b0;
-            //     next_valid_bits[0] = 1'b1;
-            // end else if (~valid_bits[1]) begin
-            //     next_lru = 1'b1;
-            //     next_valid_bits[1] = 1'b1;
-            // end else begin
-            //     // full, needs to evict
-            //     next_lru = ~lru;
-            // end
-
-            ba_data_sel = 1'b1;
-            // end
-
-            // unique case (next_lru)
-            //     1'b0: begin
-            //         tag_load_bits[0] = 1'b1;
-            //         // if (~is_hit) begin
-            //             // Not a hit, need to replace/update data array
-            //         load_data_sel[0] = cache_types::loadall;
-            //         // end
-            //     end
-            //     1'b1: begin 
-            //         tag_load_bits[1] = 1'b1;
-            //         // if (~is_hit) begin
-            //         load_data_sel[1] = cache_types::loadall;
-            //         // end
-            //     end
-            // endcase
-
-            // if (next_lru_idx != next_lru) begin
-            //     $display("unqueal %d ~= %d at time %0t\n", next_lru_idx, next_lru, $time);
-            // end
-
-
-            next_lru_idx = hit_idx;
-            tag_load_bits[next_lru_idx] = 1'b1;
-            load_data_sel[next_lru_idx] = cache_types::loadall;
-
-
-
-            // if (writeop) begin
-            //     load_dirty = 1'b1;
-            //     next_dirty_bits[next_lru] = 1'b1;
-            // end
-
-        end
         refill: begin
+            mem_resp = 1'b1; 
             // $display("reflling processing at %0t", $time);
             data_in_sel = 1'b1;
             load_dirty = 1'b1;
@@ -348,10 +266,12 @@ always_comb begin
                 end
             end
             read_mem: begin
-                if (pmem_resp) 
-                    next_state = check_hit;
-                else 
+                if (pmem_resp) begin
+                    if (readop) next_state = check_hit;
+                    else next_state = refill;
+                end else begin
                     next_state = read_mem;
+                end
             end
             idle: begin
                 if (is_memop) begin
@@ -398,13 +318,14 @@ always_comb begin
                 end
             end
             refill: begin
-                next_state = idle;
+                next_state = check_hit;
             end
             evict: begin
                 // next_state = ready;
                 if (pmem_resp) begin
                     next_state = read_mem;
                 end else begin
+                    // $display("at %t, evict to address", $time);
                     next_state = evict;
                 end
             end

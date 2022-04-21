@@ -560,23 +560,23 @@ end
 always_comb begin : MEM_W
     data_wdata = rs2_fwoutmux_out[STAGE_MEM]; 
     data_mbe = 4'b1111;
-    // unique case (inst_decoder[STAGE_MEM].funct3) 
-    //     // TODO: for simplicity, worry about only sw for now
-    //     // rv32i_types::sh: begin
-    //     //     data_wdata = rs2_out[STAGE_MEM] << {alu_out[STAGE_MEM][1:0], 3'd0};  //shift bits, so *8 to bytes
-    //     //     data_mbe = 4'b0011 << alu_out[STAGE_MEM][1:0];
-    //     // end
-    //     // rv32i_types::sb: begin
-    //     //     data_wdata = rs2_out[STAGE_MEM] << {alu_out[STAGE_MEM][1:0], 3'd0};
-    //     //     data_mbe = 4'b0001 << alu_out[STAGE_MEM][1:0];
-    //     // end
-    //     rv32i_types::sw: begin  
-    //         // data_addr = {alu_out[STAGE_EX][31:2], 2'b00};
-    //         data_wdata = rs2_fwoutmux_out[STAGE_MEM]; // rs2_out[STAGE_MEM];
-    //         data_mbe = 4'b1111;
-    //     end
-    //     default: ;
-    // endcase
+    unique case (inst_decoder[STAGE_MEM].funct3) 
+        // TODO: for simplicity, worry about only sw for now
+        rv32i_types::sh: begin
+            data_wdata = rs2_out[STAGE_MEM] << {alu_out[STAGE_MEM][1:0], 3'd0};  //shift bits, so *8 to bytes
+            data_mbe = 4'b0011 << alu_out[STAGE_MEM][1:0];
+        end
+        rv32i_types::sb: begin
+            data_wdata = rs2_out[STAGE_MEM] << {alu_out[STAGE_MEM][1:0], 3'd0};
+            data_mbe = 4'b0001 << alu_out[STAGE_MEM][1:0];
+        end
+        rv32i_types::sw: begin  
+            // data_addr = {alu_out[STAGE_EX][31:2], 2'b00};
+            data_wdata = rs2_fwoutmux_out[STAGE_MEM]; // rs2_out[STAGE_MEM];
+            data_mbe = 4'b1111;
+        end
+        default: ;
+    endcase
 end
 
 

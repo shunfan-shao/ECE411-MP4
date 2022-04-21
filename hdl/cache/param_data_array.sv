@@ -29,18 +29,22 @@ logic [s_line-1:0] data [num_ways-1:0][num_sets-1:0] /* synthesis ramstyle = "lo
 logic [num_ways-1:0][s_line-1:0] _dataout;
 assign dataout = _dataout;
 
+always_ff @(posedge clk) begin
+    for (int w = 0; w < num_ways; w++) begin
+        for (int i = 0; i < s_mask; i++)
+        begin
+            data[w][windex][8*i +: 8] <= write_en[w][i] ? datain[w][8*i +: 8] :
+                                                    data[w][windex][8*i +: 8];
+        end
+    end
+end
+
 always_comb begin
     for (int w = 0; w < num_ways; w++) begin
         if (read[w])
             for (int i = 0; i < s_mask; i++)
                 _dataout[w][8*i +: 8] <= (write_en[w][i] & (rindex == windex)) ?
                                     datain[w][8*i +: 8] : data[w][rindex][8*i +: 8];
-
-        for (int i = 0; i < s_mask; i++)
-        begin
-            data[w][windex][8*i +: 8] <= write_en[w][i] ? datain[w][8*i +: 8] :
-                                                    data[w][windex][8*i +: 8];
-        end
     end
 end
 
