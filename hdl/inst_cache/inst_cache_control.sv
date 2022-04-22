@@ -76,6 +76,7 @@ always_comb begin
 end
 
 always_comb begin
+    next_state = state;
     case (state)
         check_hit: begin
             if (readop | writeop) begin

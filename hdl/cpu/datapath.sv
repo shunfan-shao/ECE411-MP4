@@ -112,6 +112,77 @@ PC(
 
 
 /* pc out */
+
+genvar in_i;
+generate
+    for (in_i=STAGE_EX; in_i<STAGE_WB; in_i++) begin : generate_stage_ex_wb
+        register #(.width(32))
+        pc_register_fwd(
+            .clk(clk),
+            .rst(rst),
+            .load(~stall),
+            .in(pc_out[in_i]),
+            .out(pc_out[in_i+1])
+        );
+
+        register #(.width($bits(rv32i_decoder_word)))
+        inst_decoder_fwd(
+            .clk(clk),
+            .rst(rst),
+            .load(~stall), 
+            .in(inst_decoder[in_i]),
+            .out(inst_decoder[in_i+1])
+        );
+
+        register #(.width($bits(rv32i_control_word)))
+        inst_control_fwd(
+            .clk(clk),
+            .rst(rst),
+            .load(~stall), 
+            .in(inst_control[in_i]),
+            .out(inst_control[in_i+1])
+        );
+        
+        register #(.width(32))
+        alu_fwd(
+            .clk(clk),
+            .rst(rst),
+            .load(~stall), 
+            .in(alu_out[in_i]),
+            .out(alu_out[in_i+1])
+        );
+
+        register #(.width(1))
+        br_en_fwd(
+            .clk(clk),
+            .rst(rst),
+            .load(~stall),
+            .in(br_en[in_i]),
+            .out(br_en[in_i+1])
+        );
+
+        if (in_i < STAGE_MEM) begin
+            register #(.width(32))
+            rs2_fwd(
+                .clk(clk),
+                .rst(rst),
+                .load(~stall), 
+                .in(rs2_out[in_i]),
+                .out(rs2_out[in_i+1])
+            );
+
+            register #(.width(32))
+            rs2_fwoutmux_out_fwd(
+                .clk(clk),
+                .rst(rst),
+                .load(~stall),
+                .in(rs2_fwoutmux_out[in_i]),
+                .out(rs2_fwoutmux_out[in_i+1])
+            );
+        end
+    end
+endgenerate
+
 register #(.width(32))
 PC_IF_ID(
     .clk(clk),
@@ -130,24 +201,6 @@ PC_ID_EX(
     .out(pc_out[STAGE_EX])
 );
 
-register #(.width(32))
-PC_EX_MEM(
-    .clk(clk),
-    .rst(rst),
-    .load(~stall),
-    .in(pc_out[STAGE_EX]),
-    .out(pc_out[STAGE_MEM])
-);
-
-register #(.width(32))
-PC_MEM_WB(
-    .clk(clk),
-    .rst(rst),
-    .load(~stall),
-    .in(pc_out[STAGE_MEM]),
-    .out(pc_out[STAGE_WB])
-);
-
 /* Instruction Decoder IR */
 register #(.width($bits(rv32i_decoder_word)))
 InstDecoder_ID_EX(
@@ -158,24 +211,6 @@ InstDecoder_ID_EX(
     .out(inst_decoder[STAGE_EX])
 );
 
-register #(.width($bits(rv32i_decoder_word)))
-InstDecoder_EX_MEM(
-    .clk(clk),
-    .rst(rst),
-    .load(~stall), 
-    .in(inst_decoder[STAGE_EX]),
-    .out(inst_decoder[STAGE_MEM])
-);
-
-register #(.width($bits(rv32i_decoder_word)))
-InstDecoder_MEM_WB(
-    .clk(clk),
-    .rst(rst),
-    .load(~stall), 
-    .in(inst_decoder[STAGE_MEM]),
-    .out(inst_decoder[STAGE_WB])
-);
-
 /* Control Rom */
 register #(.width($bits(rv32i_control_word)))
 Ctrl_ID_EX(
@@ -184,43 +219,6 @@ Ctrl_ID_EX(
     .load(~(stall | stall_ifid)), 
     .in(inst_control[STAGE_ID]),
     .out(inst_control[STAGE_EX])
-);
-
-register #(.width($bits(rv32i_control_word)))
-Ctrl_EX_MEM(
-    .clk(clk),
-    .rst(rst),
-    .load(~stall), 
-    .in(inst_control[STAGE_EX]),
-    .out(inst_control[STAGE_MEM])
-);
-
-register #(.width($bits(rv32i_control_word)))
-Ctrl_MEM_WB(
-    .clk(clk),
-    .rst(rst),
-    .load(~stall), 
-    .in(inst_control[STAGE_MEM]),
-    .out(inst_control[STAGE_WB])
-);
-
-/* ALU OUT */
-register #(.width(32))
-ALU_EX_MEM(
-    .clk(clk),
-    .rst(rst),
-    .load(~stall), 
-    .in(alu_out[STAGE_EX]),
-    .out(alu_out[STAGE_MEM])
-);
-
-register #(.width(32))
-ALU_MEM_WB(
-    .clk(clk),
-    .rst(rst),
-    .load(~stall), 
-    .in(alu_out[STAGE_MEM]),
-    .out(alu_out[STAGE_WB])
 );
 
 /* rs_out data */
@@ -242,14 +240,7 @@ RS2_ID_EX(
     .out(rs2_out[STAGE_EX])
 );
 
-register #(.width(32))
-RS2_EX_MEM(
-    .clk(clk),
-    .rst(rst),
-    .load(~stall), 
-    .in(rs2_out[STAGE_EX]),
-    .out(rs2_out[STAGE_MEM])
-);
+
 
 /* MDR */
 register #(.width(32))
@@ -261,24 +252,6 @@ MDR(
     .out(mem_rdata[STAGE_WB])
 );
 
-/* BR_EN */
-register #(.width(1))
-BR_EN_EX_MEM(
-    .clk(clk),
-    .rst(rst),
-    .load(~stall),
-    .in(br_en[STAGE_EX]),
-    .out(br_en[STAGE_MEM])
-);
-
-register #(.width(1))
-BR_EN_MEM_WB(
-    .clk(clk),
-    .rst(rst),
-    .load(~stall),
-    .in(br_en[STAGE_MEM]),
-    .out(br_en[STAGE_WB])
-);
 
 /* BTB predict */
 register #(.width(1))
@@ -317,14 +290,7 @@ BTB_PRED_ADDR_ID_EX(
     .out(btb_predict_address[STAGE_EX])
 );
 
-register #(.width(32))
-rs2_fwoutmux_out_EX_MEM(
-    .clk(clk),
-    .rst(rst),
-    .load(~stall),
-    .in(rs2_fwoutmux_out[STAGE_EX]),
-    .out(rs2_fwoutmux_out[STAGE_MEM])
-);
+
 
 /* All Registers */
 
