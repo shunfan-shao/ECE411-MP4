@@ -41,15 +41,21 @@ end
 
 always_comb
 begin : state_actions
+    next_dvd = dvd;
+    next_dvs = dvs;
+    next_q = q;
+    next_ans = ans;
+    done = 1'b0;
+
+    quotient = q;
+    remainder = next_dvd;
+
     unique case (state)
         idle: begin
             next_dvd = dividend; 
             next_dvs = divisor; 
             next_ans = 1;
             next_q = 0;
-            quotient = 0;
-            remainder = dividend;
-            done = 1'b0;
         end
         shift: begin
             next_dvs = dvs << 1;

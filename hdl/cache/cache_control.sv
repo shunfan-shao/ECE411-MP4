@@ -16,7 +16,6 @@ module cache_control #(
     input logic [num_ways-2:0] lru_bits,
     output logic [num_ways-2:0] next_lru_bits,
     input byte lru_idx,
-    output byte next_lru_idx,
 
     output logic load_lru,
 
@@ -46,10 +45,6 @@ module cache_control #(
 enum int unsigned {
     check_hit,
     read_mem,
-    idle,
-    rwop,
-    memop,
-    ready,
     refill,
     evict
 } state, next_state;
@@ -127,14 +122,14 @@ always_comb begin
                     load_lru = 1'b1;
                     ba_data_sel = 1'b0;
 
-                    next_lru_idx = hit_idx;
-                    set_next_lru_bits(next_lru_idx);
+                    // next_lru_idx = hit_idx;
+                    set_next_lru_bits(hit_idx);
 
                     if (writeop) begin
                         data_in_sel = 1'b1;
                         load_dirty = 1'b1;
-                        next_dirty_bits[next_lru_idx] = 1'b1;
-                        load_data_sel[next_lru_idx] = cache_types::loaden;
+                        next_dirty_bits[hit_idx] = 1'b1;
+                        load_data_sel[hit_idx] = cache_types::loaden;
                     end
                 end 
             end 
@@ -167,7 +162,7 @@ always_comb begin
                     end
                     hit_idx -= 1;
                 end 
-                next_lru_idx = hit_idx;
+                // next_lru_idx = hit_idx;
 
                 if (~valid_bits[hit_idx]) begin
                     load_valid = 1'b1;
@@ -202,43 +197,18 @@ always_comb begin
             //     end
             // endcase
         end
-        memop: begin
-            pmem_read = 1'b1;
-        end
-        rwop: begin
-            /*rwop is necessary for valid/lru bit to be read correctly */
-            
-            if (is_hit) begin
-                mem_resp = 1'b1; //CPU mem_resp
-                load_lru = 1'b1;
-                // load_valid = 1'b1; //TODO: remove temperorily, no need to laod valid ?
-                // if (hit_bits[0]) begin
-                //     next_lru = 1'b0;
-                // end else begin
-                //     next_lru = 1'b1;
-                // end
-                next_lru_idx = hit_idx;
-                set_next_lru_bits(next_lru_idx);
-
-                ba_data_sel = 1'b0;
-            end else begin
-                // need to recalculate next lru idx
-            end
-        end
         refill: begin
             mem_resp = 1'b1; 
             // $display("reflling processing at %0t", $time);
             data_in_sel = 1'b1;
             load_dirty = 1'b1;
-            next_dirty_bits[next_lru_idx] = 1'b1;
-            load_data_sel[next_lru_idx] = cache_types::loaden;
+            next_dirty_bits[hit_idx] = 1'b1;
+            load_data_sel[hit_idx] = cache_types::loaden;
             // unique case (lru) 
             //     1'b0: load_data_sel[0] = cache_types::loaden;
             //     1'b1: load_data_sel[1] = cache_types::loaden;
             // endcase
         end 
-
-        idle: ;
         default: `BAD_CTRL_VAL;
     endcase
 
@@ -271,50 +241,6 @@ always_comb begin
                     else next_state = refill;
                 end else begin
                     next_state = read_mem;
-                end
-            end
-            idle: begin
-                if (is_memop) begin
-                    // if (is_hit) begin
-                    //     next_state = ready;
-                    // end else begin
-                    //     next_state = memop;
-                    // end
-                    next_state = rwop;
-                end else begin
-                    next_state = idle;
-                end
-            end
-            rwop: begin
-                if (is_hit) begin
-                    if (writeop) begin
-                        // write hit, refill
-                        next_state = refill;
-                    end else begin
-                        next_state = idle;
-                    end
-                end else begin
-                    // If new entry is valid and dirty, needs to evict data into memory 
-                    if (valid_bits[least_recent_used_idx] & dirty_bits[least_recent_used_idx]) begin
-                        next_state = evict;
-                    end else begin
-                        next_state = memop;
-                    end
-                end
-            end
-            memop: begin
-                if (pmem_resp) begin
-                    next_state = ready;
-                end else begin
-                    next_state = memop;
-                end
-            end
-            ready: begin
-                if (writeop) begin
-                    // if write miss, data is ready, next step is to refill.
-                    next_state = refill;
-                end else begin
-                    next_state = idle;
                 end
             end
             refill: begin

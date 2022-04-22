@@ -24,7 +24,6 @@ module cache_datapath #(
     output logic [num_ways-2:0] lru_bits,
     input logic [num_ways-2:0] next_lru_bits,
     output byte lru_idx,
-    input byte next_lru_idx,
 
     input logic [1:0] load_data_sel [num_ways-1:0],
 

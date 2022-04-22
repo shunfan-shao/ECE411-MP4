@@ -28,8 +28,8 @@ input [width-1:0] datain;
 output logic [width-1:0] dataout;
 
 logic [width-1:0] data [num_sets-1:0] /* synthesis ramstyle = "logic" */;
-logic [width-1:0] _dataout;
-assign dataout = _dataout;
+// logic [width-1:0] _dataout;
+// assign dataout = _dataout;
 
 always_ff @(posedge clk) begin
     if (rst) begin
@@ -44,8 +44,7 @@ always_ff @(posedge clk) begin
 end
 
 always_comb begin
-    if (read)
-        _dataout = data[rindex];
+    dataout = data[rindex];
 end
 
 endmodule : array
