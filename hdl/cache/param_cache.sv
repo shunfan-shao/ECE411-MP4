@@ -32,7 +32,7 @@ module param_cache #(
     input   logic           pmem_resp
 );
 
-byte lru_idx, next_lru_idx;
+byte lru_idx;
 
 logic [255:0] ba_mem_wdata256;
 logic [255:0] ba_mem_rdata256;
@@ -77,7 +77,6 @@ cache_control #(.num_ways(num_ways)) control
     .lru_bits(lru_bits),
     .next_lru_bits(next_lru_bits),
     .lru_idx(lru_idx),
-    .next_lru_idx(next_lru_idx),
 
     .load_lru(load_lru),
 
@@ -114,7 +113,6 @@ cache_datapath #(.num_ways(num_ways)) datapath
     .lru_bits(lru_bits),
     .next_lru_bits(next_lru_bits),
     .lru_idx(lru_idx),
-    .next_lru_idx(next_lru_idx),
 
     .load_data_sel(load_data_sel),
 
