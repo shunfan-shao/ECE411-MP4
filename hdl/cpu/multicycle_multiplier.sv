@@ -205,16 +205,29 @@ always_ff @ (posedge clk) begin
     done = 1'b0;
     if (calc) begin
         step = step + 1;
+        // if (step == 1) begin
+        //     wallace_tree_16bit(multiplicand[15:0], multiplier[15:0], t32_0);
+        //     wallace_tree_16bit(multiplicand[15:0], multiplier[31:16], t32_1);
+        // end else if (step == 2) begin
+        //     wallace_tree_16bit(multiplicand[31:16], multiplier[15:0], t32_2);
+        //     wallace_tree_16bit(multiplicand[31:16], multiplier[31:16], t32_3); //limit clock to 99hz
+        // end else if (step == 3) begin
+        //     done = 1'b1;
+        //     step = 0;
+        //     product = (t32_3 << 32) + (t32_2 << 16) + (t32_1 << 16) + t32_0; //limit clock to 97hz
+        // end
         if (step == 1) begin
             wallace_tree_16bit(multiplicand[15:0], multiplier[15:0], t32_0);
-            wallace_tree_16bit(multiplicand[15:0], multiplier[31:16], t32_1);
         end else if (step == 2) begin
-            wallace_tree_16bit(multiplicand[31:16], multiplier[15:0], t32_2);
-            wallace_tree_16bit(multiplicand[31:16], multiplier[31:16], t32_3); //limit clock to 99hz
+            wallace_tree_16bit(multiplicand[15:0], multiplier[31:16], t32_1);
         end else if (step == 3) begin
+            wallace_tree_16bit(multiplicand[31:16], multiplier[15:0], t32_2);
+        end else if (step == 4) begin
+            wallace_tree_16bit(multiplicand[31:16], multiplier[31:16], t32_3); //limit clock to 99hz
+        end else if (step == 5) begin
+            product = (t32_3 << 32) + (t32_2 << 16) + (t32_1 << 16) + t32_0;
             done = 1'b1;
             step = 0;
-            product = (t32_3 << 32) + (t32_2 << 16) + (t32_1 << 16) + t32_0; //limit clock to 97hz
         end
     end else begin
         step = 0;
