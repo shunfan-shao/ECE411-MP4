@@ -26,12 +26,10 @@ module inst_cache #(
     input   logic           pmem_resp
 );
 
-logic hit_0, hit_1;
-logic load_valid_0;
-logic load_valid_1;
-logic load_tag_0;
-logic load_tag_1;
-logic lru, next_lru;
+logic [3:0] hits;
+logic load_way;
+logic [1:0] load_way_sel;
+logic [2:0] lru_array, next_lru_array;
 
 inst_cache_control inst_control
 (
@@ -40,15 +38,13 @@ inst_cache_control inst_control
     .readop(mem_read),
     .writeop(mem_write),
 
-    .hit_0(hit_0),
-    .hit_1(hit_1),
-    .lru(lru),
-    .next_lru(next_lru),
+    .hits(hits),
 
-    .load_valid_0(load_valid_0),
-    .load_valid_1(load_valid_1),
-    .load_tag_0(load_tag_0),
-    .load_tag_1(load_tag_1),
+    .lru_array(lru_array),
+    .next_lru_array(next_lru_array),
+
+    .load_way(load_way),    
+    .load_way_sel(load_way_sel),
 
     .mem_resp(mem_resp),
     .pmem_resp(pmem_resp),
@@ -60,16 +56,24 @@ inst_cache_datapath inst_datapath
     .clk(clk),
     .rst(rst),
     
-    .load_valid_0(load_valid_0),
-    .load_valid_1(load_valid_1),
-    .load_tag_0(load_tag_0),
-    .load_tag_1(load_tag_1),
+    // .load_valid_0(load_valid_0),
+    // .load_valid_1(load_valid_1),
+    // .load_tag_0(load_tag_0),
+    // .load_tag_1(load_tag_1),
 
-    .lru(lru),
-    .next_lru(next_lru),
+    // .lru(lru),
+    // .next_lru(next_lru),
 
-    .hit_0(hit_0),
-    .hit_1(hit_1),
+    // .hit_0(hit_0),
+    // .hit_1(hit_1),
+    .load_way(load_way),    
+    .load_way_sel(load_way_sel),
+
+    .lru_array(lru_array),
+    .next_lru_array(next_lru_array),
+    
+    .hits(hits),
+
 
     .mem_address(mem_address),
     .pmem_address(pmem_address),
