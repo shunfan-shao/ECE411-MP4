@@ -84,7 +84,6 @@ typedef enum bit [2:0] {
 
 
 typedef struct packed {
-    rv32i_opcode opcode;
     alu_ops aluop;
     branch_funct3_t cmpop;
     
