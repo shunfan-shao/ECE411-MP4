@@ -12,7 +12,6 @@ module control_rom
 always_comb
 begin
     /* Default assignments */
-    ctrl.opcode = opcode;
     ctrl.load_regfile = 1'b0;
 
     ctrl.pcmux_sel = pcmux::pc_plus4;

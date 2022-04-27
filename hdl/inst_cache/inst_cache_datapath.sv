@@ -155,6 +155,7 @@ always_comb begin
         else if (hits[1]) data_out = data_bits[1][addr_index];
         else if (hits[2]) data_out = data_bits[2][addr_index];
         else if (hits[3]) data_out = data_bits[3][addr_index];
+        else data_out = pmem_rdata;
     end else begin
         data_out = pmem_rdata;
         // if (hit_array[0]) data_out = data_bits[0][addr_index];
