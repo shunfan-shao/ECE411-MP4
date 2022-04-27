@@ -438,6 +438,29 @@ always_comb begin : FORWARD
         rsfwoutmux::mem_wb_fr: rs2_fwoutmux_out[STAGE_EX] = mem_rdata[STAGE_WB]; //TODO: lb/lh cases
     endcase
 
+
+    rs2_fwoutmux_out[STAGE_EX] = rs2_out[STAGE_EX];
+    if (inst_decoder[STAGE_WB].rd != 5'd0) begin
+        if (inst_decoder[STAGE_WB].rd == inst_decoder[STAGE_EX].rs2) begin
+            rs2_fwoutmux_out[STAGE_EX] = regfilemux_out;
+        end
+    end
+    if (inst_decoder[STAGE_MEM].rd != 5'd0) begin
+        if (inst_decoder[STAGE_MEM].rd == inst_decoder[STAGE_EX].rs2) begin
+            unique case (inst_control[STAGE_MEM].regfilemux_sel) 
+                regfilemux::alu_out: rs2_fwoutmux_out[STAGE_EX] = alu_out[STAGE_MEM];
+                // regfilemux::u_imm: rs1_fwoutmux_out = inst_decoder[STAGE_MEM].u_imm;
+                // regfilemux::br_en: rs1_fwoutmux_out = {31'd0, br_en[STAGE_MEM]};
+                default: rs2_fwoutmux_out[STAGE_EX] = alu_out[STAGE_MEM];
+            endcase
+            // unique case (inst_control[STAGE_MEM].opcode)
+            //     op_lui: rs1_fwoutmux_sel = rsfwoutmux::mem_uimm_fr;
+            //     default: rs1_fwoutmux_sel = rsfwoutmux::data_mem;
+            // endcase
+        end
+    end
+
+
     // TODO: if wb forwarding, use regfilemux_out is sufficient
     rs1_fwoutmux_sel = rsfwoutmux::rs;
     if (inst_decoder[STAGE_WB].rd != 5'd0) begin
