@@ -30,8 +30,10 @@ localparam STAGE_EX  = 2;
 localparam STAGE_MEM = 3;
 localparam STAGE_WB  = 4;
 
+localparam S_PC_TAG = 5;
+
 logic branch_taken;
-logic stall, flush, stall_ifid;
+logic stall, stall_ifid, flush;
 rv32i_word inst[STAGE_ID:STAGE_WB];
 rv32i_decoder_word inst_decoder[STAGE_ID:STAGE_WB];
 rv32i_control_word inst_control[STAGE_ID:STAGE_WB];
@@ -257,7 +259,7 @@ MDR(
 register #(.width(1))
 BTB_IF_ID(
     .clk(clk),
-    .rst(rst),
+    .rst(rst | flush),
     .load(~(stall | stall_ifid)),
     .in(btb_hit[STAGE_IF]),
     .out(btb_hit[STAGE_ID])
@@ -266,7 +268,7 @@ BTB_IF_ID(
 register #(.width(1))
 BTB_ID_EX(
     .clk(clk),
-    .rst(rst),
+    .rst(rst | flush),
     .load(~(stall | stall_ifid)),
     .in(btb_hit[STAGE_ID]),
     .out(btb_hit[STAGE_EX])
@@ -343,17 +345,19 @@ CMP(
     .br_en(br_en[STAGE_EX])
 );
 
-// btb
-// BTB(
-//     .clk(clk),
-//     .load(1'b0), //TODO: current not used, may be needed
-//     .pc_if(pc_out[STAGE_IF]),
-//     .pc_ex(pc_out[STAGE_EX]),
-//     .br_en(branch_taken), //whether branch is actually taken
-//     .jump_address(pcmux_out),
-//     .hit(btb_hit[STAGE_IF]),
-//     .predict_address(btb_predict_address[STAGE_IF])
-// );
+btb #(.s_index(S_PC_TAG))
+BTB(
+    .clk(clk),
+    .rst(rst),
+    .br_en(branch_taken),
+
+    .pc_ex(pc_out[STAGE_EX]),
+    .target_address(alu_ex_out),
+
+    .pc_if(pc_out[STAGE_IF]),
+    .hit(btb_hit[STAGE_IF]),
+    .predict_address(btb_predict_address[STAGE_IF])
+);
 
 multicycle_multiplier
 MULT(
@@ -555,8 +559,8 @@ always_comb begin : INST
     id_ex_decoder_word = inst_decoder[STAGE_ID];
 
     branch_taken = 1'b0;
-    flush = 1'b0;
     stall_ifid = 1'b0;
+    flush = 1'b0;
     
     if (inst_decoder[STAGE_EX].rd != 5'd0) begin
         if (inst_control[STAGE_EX].opcode == rv32i_types::op_load &&
@@ -583,58 +587,122 @@ always_comb begin : INST
         op_br: begin
             pcmux_out = (br_en[STAGE_EX] ? alu_ex_out : pc_out[STAGE_IF] + 4);
             branch_taken = br_en[STAGE_EX];
+
+            // $display("brach op at %t", $time);
         end
         op_jal:  begin
             pcmux_out = alu_ex_out;
             branch_taken = 1'b1;
+            // $display("op_jal op at %t", $time);
         end
         op_jalr: begin
             pcmux_out = {alu_ex_out[31:1], 1'b0};
             branch_taken = 1'b1;
+            // $display("op_jalr op at %t", $time);
         end
         default: pcmux_out = pc_out[STAGE_IF] + 4;
     endcase
 
-    // if branch is actually taken after calculation
-    if (branch_taken) begin
-        // if (btb_hit[STAGE_EX] && pcmux_out == btb_predict_address[STAGE_EX]) begin
-        //     // predict correctly
-        //     if (btb_hit[STAGE_IF]) begin
-        //         pcmux_out = btb_predict_address[STAGE_IF];
-        //     end else begin  
-        //         pcmux_out = pc_out[STAGE_IF] + 4;
-        //     end
-        // end else begin
-            // flush the pipeline 
 
-            // $display("flusing the pipleins at time = %t (eval %x && %x)\n", $realtime, inst_decoder[STAGE_EX].opcode, br_en[STAGE_EX]);
-            // flush the pipeline, replace with nop
-            // 2 instruction previous, just reset it
+    if (btb_hit[STAGE_EX]) begin
+        if (branch_taken) begin
+            if (pcmux_out == btb_predict_address[STAGE_EX]) begin
+                pcmux_out = pc_out[STAGE_IF] + 4;
+
+                if (btb_hit[STAGE_IF]) begin
+                    pcmux_out = btb_predict_address[STAGE_IF];
+                end 
+            end else begin
+                // predict wrong address
+                inst[STAGE_ID] = 32'h00000013; 
+                inst_control[STAGE_ID].load_regfile = 1'b0; 
+
+                id_ex_decoder_word.rs1 = 0;
+                id_ex_decoder_word.rs2 = 0;
+                id_ex_decoder_word.rd = 0;
+                id_ex_decoder_word.j_imm = 32'h0000ffff; //TODO: this is not needed
+                id_ex_decoder_word.opcode = op_imm;
+
+                flush = 1'b1;
+
+                // pcmux_out = pc_out[STAGE_EX] + 4;
+            end
+        end else begin
             inst[STAGE_ID] = 32'h00000013; 
-            // for decoded instruction, reset instruction decoder
-            // inst_decoder[STAGE_ID].rs1 = 0;
-            // inst_decoder[STAGE_ID].rs2 = 0;
-            // inst_decoder[STAGE_ID].rd = 0;
-            // inst_decoder[STAGE_ID].j_imm = 32'h0000ffff;
-            // inst_decoder[STAGE_ID].opcode = op_imm;
-
-            // TODO: for control state, as long as not loading regfile is fine? 
             inst_control[STAGE_ID].load_regfile = 1'b0; 
 
-            //TODO: Flush and branch_taken is the same thing
+            id_ex_decoder_word.rs1 = 0;
+            id_ex_decoder_word.rs2 = 0;
+            id_ex_decoder_word.rd = 0;
+            id_ex_decoder_word.j_imm = 32'h0000ffff;
+            id_ex_decoder_word.opcode = op_imm;
+
             flush = 1'b1;
-        // end
+
+            pcmux_out = pc_out[STAGE_EX] + 4;
+        end
+    end else begin
+        if (branch_taken) begin
+            // Not hit but a branch was taken
+            inst[STAGE_ID] = 32'h00000013; 
+            inst_control[STAGE_ID].load_regfile = 1'b0; 
+
+            id_ex_decoder_word.rs1 = 0;
+            id_ex_decoder_word.rs2 = 0;
+            id_ex_decoder_word.rd = 0;
+            id_ex_decoder_word.j_imm = 32'h0000ffff;
+            id_ex_decoder_word.opcode = op_imm;
+            flush = 1'b1;
+
+        end else begin
+            if (btb_hit[STAGE_IF]) begin
+                pcmux_out = btb_predict_address[STAGE_IF];
+            end 
+        end
     end
 
+    // if branch is actually taken after calculation
+    // if (branch_taken) begin
+    //     // $display("branch taken and flusing at %t", $time);
+    //     // if (btb_hit[STAGE_EX] && pcmux_out == btb_predict_address[STAGE_EX]) begin
+            
+    //     // end
+    //     // if (btb_hit[STAGE_EX] && pcmux_out == btb_predict_address[STAGE_EX]) begin
+    //     //     // predict correctly
+    //     //     if (btb_hit[STAGE_IF]) begin
+    //     //         pcmux_out = btb_predict_address[STAGE_IF];
+    //     //     end else begin  
+    //     //         pcmux_out = pc_out[STAGE_IF] + 4;
+    //     //     end
+    //     // end else begin
+    //         // flush the pipeline 
+
+    //         // $display("flusing the pipleins at time = %t (eval %x && %x)\n", $realtime, inst_decoder[STAGE_EX].opcode, br_en[STAGE_EX]);
+    //         // flush the pipeline, replace with nop
+    //         // 2 instruction previous, just reset it
+    //         inst[STAGE_ID] = 32'h00000013; 
+    //         // for decoded instruction, reset instruction decoder
+    //         // inst_decoder[STAGE_ID].rs1 = 0;
+    //         // inst_decoder[STAGE_ID].rs2 = 0;
+    //         // inst_decoder[STAGE_ID].rd = 0;
+    //         // inst_decoder[STAGE_ID].j_imm = 32'h0000ffff;
+    //         // inst_decoder[STAGE_ID].opcode = op_imm;
+
+    //         // TODO: for control state, as long as not loading regfile is fine? 
+    //         inst_control[STAGE_ID].load_regfile = 1'b0; 
+
+    //         //TODO: Flush and branch_taken is the same thing
+    //         id_ex_decoder_word.rs1 = 0;
+    //         id_ex_decoder_word.rs2 = 0;
+    //         id_ex_decoder_word.rd = 0;
+    //         id_ex_decoder_word.j_imm = 32'h0000ffff;
+    //         id_ex_decoder_word.opcode = op_imm;
+
+    //     // end
+    // end
 
 
-    if (flush) begin
-        id_ex_decoder_word.rs1 = 0;
-        id_ex_decoder_word.rs2 = 0;
-        id_ex_decoder_word.rd = 0;
-        id_ex_decoder_word.j_imm = 32'h0000ffff;
-        id_ex_decoder_word.opcode = op_imm;
-    end
+
 
     // Sometimes the register values are nevered used and should not be forwarded
     unique case (id_ex_decoder_word.opcode)
@@ -653,15 +721,16 @@ always_comb begin : ALUMUXSEL
                 alu_out[STAGE_EX] = mult_out[31:0];
             end
             rv32i_types::div, rv32i_types::divu: begin 
+                // $display("div %d %d at %0t\n", alumux1_out, alumux2_out, $time);
                 // $display("div at %0t\n", $time);
                 alu_out[STAGE_EX] = quotient;
             end
             rv32i_types::rem: begin 
-                // $display("rem at %0t\n", $time);
+                // $display("rem %d %d at %0t\n", alumux1_out, alumux2_out, $time);
                 alu_out[STAGE_EX] = remainder;
             end
             rv32i_types::remu: begin 
-                // $display("remu at %0t\n", $time);
+                // $display("remu %d %d at %0t\n", alumux1_out, alumux2_out, $time);
                 alu_out[STAGE_EX] = remainder;
             end
             rv32i_types::mulhu: begin 
