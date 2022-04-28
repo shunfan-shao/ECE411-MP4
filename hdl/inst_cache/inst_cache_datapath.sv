@@ -125,7 +125,9 @@ always_ff @(posedge clk) begin
         //     tag_3_bits[addr_index] <= addr_tag;
         //     data_3_bits[addr_index] <= pmem_rdata;
         // end
-        last_prefetch_address <= prefetch_address;
+        if (~prefetch_ready) begin
+            last_prefetch_address <= prefetch_address;
+        end
     end
 end
 
@@ -144,16 +146,25 @@ always_comb begin : prefetch_logistics
     pmem_address = {mem_address[31:5], 5'd0};
 
     if (load_way | prefetch_ready) begin
-        prefetch_address = pmem_address + 32;
-    end
-    phits[0] = valid_bits[0][p_addr_index] & ((p_addr_tag == tag_bits[0][p_addr_index]) ? 1'b1 : 1'b0);
-    phits[1] = valid_bits[1][p_addr_index] & ((p_addr_tag == tag_bits[1][p_addr_index]) ? 1'b1 : 1'b0);
-    phits[2] = valid_bits[2][p_addr_index] & ((p_addr_tag == tag_bits[2][p_addr_index]) ? 1'b1 : 1'b0);
-    phits[3] = valid_bits[3][p_addr_index] & ((p_addr_tag == tag_bits[3][p_addr_index]) ? 1'b1 : 1'b0);
-    if (phits == 4'b0000) begin
-        prefetch = 1'b1;
+        if (hits == 4'b0000) begin
+            prefetch_address = pmem_address;
+        end else begin
+            prefetch_address = pmem_address + 32;
+        end
     end
 
+    if (hits == 0) begin
+        prefetch = 1'b0;
+    end else begin
+
+        phits[0] = valid_bits[0][p_addr_index] & ((p_addr_tag == tag_bits[0][p_addr_index]) ? 1'b1 : 1'b0);
+        phits[1] = valid_bits[1][p_addr_index] & ((p_addr_tag == tag_bits[1][p_addr_index]) ? 1'b1 : 1'b0);
+        phits[2] = valid_bits[2][p_addr_index] & ((p_addr_tag == tag_bits[2][p_addr_index]) ? 1'b1 : 1'b0);
+        phits[3] = valid_bits[3][p_addr_index] & ((p_addr_tag == tag_bits[3][p_addr_index]) ? 1'b1 : 1'b0);
+        if (phits == 4'b0000) begin
+            prefetch = 1'b1;
+        end
+    end
 end
 
 always_comb begin
