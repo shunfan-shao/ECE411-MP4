@@ -51,6 +51,8 @@ inst_cache inst_cache(
     .pmem_read(icline_read),
     .pmem_resp(icline_resp),
 
+
+    .fetched_address(pmem_address),
     .mem_address(inst_addr),
     .mem_rdata(inst_rdata),
     .mem_read(inst_read),

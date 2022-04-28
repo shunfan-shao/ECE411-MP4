@@ -34,7 +34,6 @@ logic [255:0] cline_rdata, cline_wdata;
 logic cline_read, cline_write, cline_resp;
 /******************************************************************************/
 
-
 enum int unsigned {
     s_idle, 
     s_inst,
@@ -134,7 +133,9 @@ begin : next_state_logic
             if (cline_resp) begin
                 if (dcline_read | dcline_write) next_state = s_data;
                 else next_state = s_idle;
-            end 
+            end else begin
+                next_state = s_prefecth;
+            end
         end
     endcase
 end

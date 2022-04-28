@@ -27,6 +27,7 @@ begin
         end 
         op_auipc: begin
             ctrl.load_regfile = 1'b1;
+            ctrl.regfilemux_sel = regfilemux::alu_out;
             ctrl.alumux1_sel = alumux::pc_out;
             ctrl.alumux2_sel = alumux::u_imm;
             ctrl.aluop = alu_add;
