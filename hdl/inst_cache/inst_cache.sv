@@ -24,6 +24,7 @@ module inst_cache #(
     output  logic           mem_resp,
 
     /* Physical memory signals */
+    input   logic [31:0]    fetched_address,
     output  logic [31:0]    pmem_address,
     input   logic [255:0]   pmem_rdata,
     output  logic           pmem_read,
@@ -87,6 +88,7 @@ inst_cache_datapath inst_datapath
     .prefetch_address(prefetch_address),
     .prefetch_ready(prefetch_ready),
 
+    .fetched_address(fetched_address),
     .mem_address(mem_address),
     .pmem_address(pmem_address),
     .pmem_rdata(pmem_rdata),

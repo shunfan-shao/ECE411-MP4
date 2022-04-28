@@ -137,7 +137,8 @@ always_comb begin
     next_state = state;
     case (state)
         check_hit: begin
-            if (readop | writeop) begin
+            if (prefetch_ready) next_state = check_hit;
+            else if (readop | writeop) begin
                 if (hits == 4'b0000) begin
                     next_state = read_mem;
                 end

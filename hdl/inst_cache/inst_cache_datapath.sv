@@ -33,6 +33,7 @@ module inst_cache_datapath #(
     input logic prefetch_ready,
 
 
+    input logic [31:0] fetched_address,
     input logic [31:0] mem_address,
     output logic [31:0] pmem_address, //
     input logic [255:0] pmem_rdata,
@@ -125,9 +126,9 @@ always_ff @(posedge clk) begin
         //     tag_3_bits[addr_index] <= addr_tag;
         //     data_3_bits[addr_index] <= pmem_rdata;
         // end
-        if (~prefetch_ready) begin
-            last_prefetch_address <= prefetch_address;
-        end
+        // if (~prefetch_ready) begin
+        //     last_prefetch_address <= prefetch_address;
+        // end
     end
 end
 
@@ -136,22 +137,27 @@ always_comb begin : prefetch_load
         addr_index = mem_address[7:5];
         addr_tag = mem_address[31:8];
     end else begin
-        addr_index = last_prefetch_address[7:5];
-        addr_tag = last_prefetch_address[31:8];
+        addr_index = fetched_address[7:5];
+        addr_tag = fetched_address[31:8];
     end
-
 end
 
 always_comb begin : prefetch_logistics
     pmem_address = {mem_address[31:5], 5'd0};
+    phits = 4'b0000;
+    prefetch = 1'b0;
+    last_prefetch_address = prefetch_address;
 
     if (load_way | prefetch_ready) begin
-        if (hits == 4'b0000) begin
-            prefetch_address = pmem_address;
-        end else begin
+        // if (hits == 4'b0000) begin
+        //     prefetch_address = pmem_address;
+        // end else begin
             prefetch_address = pmem_address + 32;
-        end
+        // end
+    end else begin
+        prefetch_address = pmem_address + 32;
     end
+
 
     if (hits == 0) begin
         prefetch = 1'b0;
@@ -163,6 +169,8 @@ always_comb begin : prefetch_logistics
         phits[3] = valid_bits[3][p_addr_index] & ((p_addr_tag == tag_bits[3][p_addr_index]) ? 1'b1 : 1'b0);
         if (phits == 4'b0000) begin
             prefetch = 1'b1;
+
+            last_prefetch_address = prefetch_address;
         end
     end
 end
