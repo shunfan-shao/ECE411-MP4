@@ -13,6 +13,10 @@ module inst_cache #(
     input clk,
     input rst,
 
+    output logic prefetch,
+    output logic [31:0] prefetch_address,
+    input  logic prefetch_ready,
+
     /* CPU memory signals */
     input   logic [31:0]    mem_address,
     output  logic [31:0]    mem_rdata,
@@ -31,6 +35,8 @@ logic load_way;
 logic [1:0] load_way_sel;
 logic [2:0] lru_array, next_lru_array;
 
+logic load_prefetch;
+
 inst_cache_control inst_control
 (
     .clk(clk),
@@ -45,7 +51,9 @@ inst_cache_control inst_control
 
     .load_way(load_way),    
     .load_way_sel(load_way_sel),
+    .load_prefetch(load_prefetch),
 
+    .prefetch_ready(prefetch_ready),
     .mem_resp(mem_resp),
     .pmem_resp(pmem_resp),
     .pmem_read(pmem_read)
@@ -68,12 +76,16 @@ inst_cache_datapath inst_datapath
     // .hit_1(hit_1),
     .load_way(load_way),    
     .load_way_sel(load_way_sel),
+    .load_prefetch(load_prefetch),
 
     .lru_array(lru_array),
     .next_lru_array(next_lru_array),
     
     .hits(hits),
 
+    .prefetch(prefetch),
+    .prefetch_address(prefetch_address),
+    .prefetch_ready(prefetch_ready),
 
     .mem_address(mem_address),
     .pmem_address(pmem_address),

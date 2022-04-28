@@ -15,6 +15,9 @@ module arbiter(
     input rv32i_word  icline_address,
     output logic       icline_resp,
     output logic [255:0] icline_rdata,
+    input logic iprefetch,
+    input logic [31:0] iprefetch_addr,
+    output logic iprefetch_done, 
 
     input logic dcline_read,
     input logic dcline_write,
@@ -34,8 +37,9 @@ logic cline_read, cline_write, cline_resp;
 
 enum int unsigned {
     s_idle, 
-    s_inst, s_inst_fin,
-    s_data
+    s_inst,
+    s_data,
+    s_prefecth
 } state, next_state;
 
 
@@ -45,6 +49,7 @@ begin : state_actions
     cline_write = 1'b0;
     icline_resp = 1'b0;
     dcline_resp = 1'b0;
+    iprefetch_done = 1'b0;
 
     // default values to get around systhesis
     cline_address = icline_address; 
@@ -64,8 +69,6 @@ begin : state_actions
             icline_resp = cline_resp;
             icline_rdata = cline_rdata;
 
-            // inst_resp = mem_resp;
-            // inst_rdata = mem_rdata;
         end
         s_data: begin
             cline_read = dcline_read;
@@ -85,6 +88,14 @@ begin : state_actions
             //     mem_wdata = data_wdata;
             // end 
         end
+        s_prefecth: begin
+            // cline_read = 1'b1;
+            cline_read = 1'b1;
+            cline_address = iprefetch_addr;
+
+            icline_rdata = cline_rdata;
+            iprefetch_done = cline_resp;
+        end
     endcase
 end
 
@@ -96,6 +107,8 @@ begin : next_state_logic
                 next_state = s_inst;
             end else if (dcline_read | dcline_write) begin
                 next_state = s_data;
+            end else if (iprefetch) begin
+                next_state = s_prefecth;
             end else begin
                 next_state = s_idle;
             end
@@ -103,6 +116,7 @@ begin : next_state_logic
         s_inst: begin
             if (cline_resp) begin
                 if (dcline_read | dcline_write) next_state = s_data;
+                else if (iprefetch) next_state = s_prefecth;
                 else next_state = s_idle;
             end else begin
                 next_state = s_inst;
@@ -115,6 +129,12 @@ begin : next_state_logic
             end else begin
                 next_state = s_data;
             end
+        end
+        s_prefecth: begin
+            if (cline_resp) begin
+                if (dcline_read | dcline_write) next_state = s_data;
+                else next_state = s_idle;
+            end 
         end
     endcase
 end

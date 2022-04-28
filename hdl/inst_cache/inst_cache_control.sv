@@ -21,7 +21,9 @@ module inst_cache_control
     // output logic load_tag_1,
     output logic load_way,
     output logic [1:0] load_way_sel,
+    output logic load_prefetch,
 
+    input logic prefetch_ready,
     output logic mem_resp,
     input  logic pmem_resp,
     output logic pmem_read
@@ -32,7 +34,8 @@ module inst_cache_control
 
 enum int unsigned {
     check_hit,
-    read_mem
+    read_mem,
+    pf_load
 } state, next_state;
 
 function automatic void set_defaults();
@@ -91,6 +94,17 @@ always_comb begin
                 end
             end
         end
+        pf_load: begin
+            load_way = 1'b1;
+            next_lru_array[0] = ~lru_array[0];
+            if (lru_array[0]) begin
+                next_lru_array[2] = ~lru_array[2];
+                load_way_sel = {1'b1, lru_array[2]};
+            end else begin
+                next_lru_array[1] = ~lru_array[1];
+                load_way_sel = {1'b0, lru_array[1]};
+            end
+        end
     endcase
 end
 
@@ -98,18 +112,30 @@ always_comb begin
     next_state = state;
     case (state)
         check_hit: begin
-            if (readop | writeop) begin
-                if (hits == 4'b0000) begin
-                    next_state = read_mem;
-                end
+            if (prefetch_ready) begin
+                next_state = pf_load;
             end else begin
-                next_state = check_hit;
+                    
+                if (readop | writeop) begin
+                    if (hits == 4'b0000) begin
+                        next_state = read_mem;
+                    end
+                end else begin
+                    next_state = check_hit;
+                end
             end
         end
         read_mem: begin
-            if (pmem_resp) begin
-                next_state = check_hit;
-            end
+            if (prefetch_ready) begin
+                next_state = pf_load;
+            end else begin
+                if (pmem_resp) begin
+                    next_state = check_hit;
+                end
+            end 
+        end
+        pf_load: begin
+            next_state = check_hit;
         end
     endcase
 end

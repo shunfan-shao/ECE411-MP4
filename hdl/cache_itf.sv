@@ -35,10 +35,16 @@ logic [255:0] dcline_rdata, dcline_wdata;
 logic dcline_read, dcline_write, dcline_resp;
 /******************************************************************************/
 
+logic iprefetch, iprefetch_done;
+logic [31:0] iprefetch_addr;
 
 inst_cache inst_cache(
     .clk(clk),
     .rst(rst),
+
+    .prefetch(iprefetch),
+    .prefetch_address(iprefetch_addr),
+    .prefetch_ready(iprefetch_done),
 
     .pmem_address(icline_address),
     .pmem_rdata(icline_rdata),
