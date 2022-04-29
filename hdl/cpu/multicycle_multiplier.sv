@@ -1,5 +1,6 @@
 module multicycle_multiplier(
     input clk,
+    input rst,
     input logic [31:0] multiplicand, 
     input logic [31:0] multiplier,
     output logic [63:0] product,
@@ -8,10 +9,11 @@ module multicycle_multiplier(
     output logic done
 );
 
-byte unsigned step;
+byte unsigned step, next_step;
 logic [31:0] t32_3, t32_2, t32_1, t32_0;
+logic [31:0] next_t32_3, next_t32_2, next_t32_1, next_t32_0;
 
-task half_adder(
+task automatic half_adder(
     input a,
     input b,
     output r,
@@ -23,7 +25,7 @@ task half_adder(
     end
 endtask
 
-task full_adder(
+task automatic full_adder(
     input x,
     input y,
     input z,
@@ -36,7 +38,7 @@ task full_adder(
     end
 endtask
 
-task wallace_tree_8bit(
+task automatic wallace_tree_8bit(
     input [7:0] a, b,
     output logic [15:0] p
 );
@@ -187,7 +189,16 @@ task wallace_tree_8bit(
     end    
 endtask
 
-task wallace_tree_16bit(
+enum int unsigned {
+    idle,
+    w00,
+    w01,
+    w10,
+    w11,
+    addall
+} state, next_state;
+
+task automatic wallace_tree_16bit(
     input [15:0] a, b,
     output logic [31:0] p
 );
@@ -201,36 +212,77 @@ task wallace_tree_16bit(
     end
 endtask
 
-always_ff @ (posedge clk) begin
+always_ff @(posedge clk) begin
+    if (rst) begin
+        state <= idle;
+        t32_0 <= 0;
+        t32_1 <= 0;
+        t32_2 <= 0;
+        t32_3 <= 0;
+    end else begin
+        state <= next_state;
+        t32_0 <= next_t32_0;
+        t32_1 <= next_t32_1;
+        t32_2 <= next_t32_2;
+        t32_3 <= next_t32_3;
+    end
+end
+
+
+always_comb begin
+    next_state = state;
+    case (state)
+        idle: begin
+            if (calc) begin
+                next_state = w00;
+            end else begin
+                next_state = idle;
+            end
+        end
+        w00: begin
+            next_state = w01;
+        end
+        w01: begin
+            next_state = w10;
+        end
+        w10: begin
+            next_state = w11;
+        end
+        w11: begin
+            next_state = addall;
+        end
+        addall: begin
+            next_state = idle;
+        end
+    endcase
+end
+
+always_comb begin
+    next_t32_0 = t32_0;
+    next_t32_1 = t32_1;
+    next_t32_2 = t32_2;
+    next_t32_3 = t32_3;
+    product = 0;
     done = 1'b0;
-    if (calc) begin
-        step = step + 1;
-        // if (step == 1) begin
-        //     wallace_tree_16bit(multiplicand[15:0], multiplier[15:0], t32_0);
-        //     wallace_tree_16bit(multiplicand[15:0], multiplier[31:16], t32_1);
-        // end else if (step == 2) begin
-        //     wallace_tree_16bit(multiplicand[31:16], multiplier[15:0], t32_2);
-        //     wallace_tree_16bit(multiplicand[31:16], multiplier[31:16], t32_3); //limit clock to 99hz
-        // end else if (step == 3) begin
-        //     done = 1'b1;
-        //     step = 0;
-        //     product = (t32_3 << 32) + (t32_2 << 16) + (t32_1 << 16) + t32_0; //limit clock to 97hz
-        // end
-        if (step == 1) begin
-            wallace_tree_16bit(multiplicand[15:0], multiplier[15:0], t32_0);
-        end else if (step == 2) begin
-            wallace_tree_16bit(multiplicand[15:0], multiplier[31:16], t32_1);
-        end else if (step == 3) begin
-            wallace_tree_16bit(multiplicand[31:16], multiplier[15:0], t32_2);
-        end else if (step == 4) begin
-            wallace_tree_16bit(multiplicand[31:16], multiplier[31:16], t32_3); //limit clock to 99hz
-        end else if (step == 5) begin
+    unique case (state) 
+        idle: ;
+        w00: begin
+            wallace_tree_16bit(multiplicand[15:0], multiplier[15:0], next_t32_0);
+        end
+        w01: begin
+            wallace_tree_16bit(multiplicand[15:0], multiplier[31:16], next_t32_1);
+        end
+        w10: begin
+            wallace_tree_16bit(multiplicand[31:16], multiplier[15:0], next_t32_2);
+        end
+        w11: begin
+            wallace_tree_16bit(multiplicand[31:16], multiplier[31:16], next_t32_3);
+        end
+        addall: begin
             product = (t32_3 << 32) + (t32_2 << 16) + (t32_1 << 16) + t32_0;
             done = 1'b1;
-            step = 0;
         end
-    end else begin
-        step = 0;
-    end
+    endcase
+
 end
 endmodule : multicycle_multiplier
