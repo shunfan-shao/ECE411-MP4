@@ -31,107 +31,31 @@ module param_cache #(
     input   logic           pmem_resp
 );
 
-
-logic [255:0] ba_mem_wdata256;
-logic [255:0] ba_mem_rdata256;
-logic [31:0] ba_mem_byte_enable256;
-
-logic load_valid;
+logic lru;
+logic next_lru;
 
 logic [1:0] hit_bits;
 logic [1:0] valids;
 
-
-logic lru;
-logic next_lru;
-
-logic load_dirty;
 logic [1:0] dirtys;
 logic [1:0] next_dirty_bits;
 
-
+logic load_way;
+logic load_dirty;
+    
+logic load_way_sel;
 logic ba_data_sel;
-
+logic pmem_addr_sel;
+logic data_in_sel;
 logic [1:0] load_data_sel;
 
+logic [255:0] ba_mem_rdata256;
+logic [255:0] ba_mem_wdata256;
+logic [31:0] ba_mem_byte_enable256;
 
-logic data_in_sel;
-logic pmem_addr_sel;
+cache_control control(.*);
 
-logic load_way;
-logic load_way_sel;
-
-cache_control control
-(
-    .clk(clk),
-    .rst(rst),
-    .readop(mem_read),
-    .writeop(mem_write),
-
-    .hit_bits(hit_bits),
-
-    .lru(lru),
-    .next_lru(next_lru),
-
-
-    .valids(valids),
-
-
-    .load_valid(load_valid),
-    
-    .load_data_sel(load_data_sel),
-
-    .data_in_sel(data_in_sel),
-    .load_dirty(load_dirty),
-    .dirtys(dirtys),
-    .next_dirty_bits(next_dirty_bits),
-    .pmem_addr_sel(pmem_addr_sel),
-
-    .load_way(load_way),
-    .load_way_sel(load_way_sel),
-    .ba_data_sel(ba_data_sel),
-
-    .mem_resp(mem_resp),
-    .pmem_resp(pmem_resp),
-    .pmem_read(pmem_read),
-    .pmem_write(pmem_write)
-);
-
-cache_datapath datapath
-(
-    .clk(clk),
-    .rst(rst),
-    .load_valid(load_valid),
-
-    .lru(lru),
-    .next_lru(next_lru),
-
-    .load_data_sel(load_data_sel),
-
-
-    .mem_address(mem_address),
-
-    .hit_bits(hit_bits),
-
-    .valids(valids),
-
-    .data_in_sel(data_in_sel),
-    .load_dirty(load_dirty),
-    .next_dirty_bits(next_dirty_bits),
-    .dirtys(dirtys),
-    .pmem_addr_sel(pmem_addr_sel),
-
-    .load_way(load_way),
-    .load_way_sel(load_way_sel),
-    .ba_data_sel(ba_data_sel),
-
-    .pmem_address(pmem_address),
-    .pmem_rdata(pmem_rdata),
-    .pmem_wdata(pmem_wdata),
-    .ba_mem_rdata256(ba_mem_rdata256),
-    .ba_mem_wdata256(ba_mem_wdata256),
-    .ba_mem_byte_enable256(ba_mem_byte_enable256)
-);
+cache_datapath datapath(.*);
 
 bus_adapter bus_adapter
 (

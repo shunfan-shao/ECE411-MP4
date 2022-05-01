@@ -6,36 +6,37 @@ module cache_control
 (
     input clk, 
     input rst,
-    input readop,
-    input writeop,
 
-    input logic [1:0] hit_bits,
+    input mem_read,
+    input mem_write,
 
     input logic lru,
-    output logic next_lru,
-
     input logic [1:0] valids,
-
-    output logic load_valid,
-
-    output logic [1:0] load_data_sel,
-    
-    output logic data_in_sel,
-    output logic load_dirty,
+    input logic [1:0] hit_bits,
     input logic [1:0] dirtys,
+
+
+    output logic next_lru,
     output logic [1:0] next_dirty_bits,
-    output logic pmem_addr_sel,
+
 
     output logic load_way,
-    output logic load_way_sel,
+    output logic load_dirty,
 
+
+    output logic load_way_sel,
+    output logic data_in_sel,
+    output logic pmem_addr_sel,
     output logic ba_data_sel,
+    output logic [1:0] load_data_sel,
 
     output logic mem_resp,
     input  logic pmem_resp,
     output logic pmem_read,
     output logic pmem_write
 );
+
+logic hit, hit_way;
 
 enum int unsigned {
     check_hit,
@@ -47,34 +48,28 @@ enum int unsigned {
 function automatic void set_defaults();
     pmem_read = 1'b0;
     pmem_write = 1'b0;
-    load_valid = 1'b0;
     mem_resp = 1'b0;
-    // next_lru = lru;
-    ba_data_sel = cache_types::data;
-
-    load_dirty = 1'b0;
-    data_in_sel = 1'b0;
-
-    load_data_sel = cache_types::noload;
-
-    for (int i=0; i<2; ++i) begin
-        next_dirty_bits[i] = dirtys[i];
-    end
-
-    // for (int i=0; i<1; ++i) begin
-    //     next_lru[i] = lru[i];
-    // end
 
     next_lru = lru;
+    next_dirty_bits = dirtys;
 
-    pmem_addr_sel = cache_types::raddr;
+    load_dirty = 1'b0;
 
     load_way = 1'b0;
     load_way_sel = 1'b0;
+    data_in_sel = cache_types::rdata;
+    pmem_addr_sel = cache_types::raddr;
+    ba_data_sel = cache_types::data;
+    load_data_sel = cache_types::noload;
 endfunction
 
-
-logic hit, hit_way;
+function void writeops();
+    data_in_sel = cache_types::wdata;
+    load_dirty = 1'b1;
+    load_way_sel = hit_way;
+    next_dirty_bits[hit_way] = 1'b1;
+    load_data_sel = cache_types::loaden;
+endfunction
 
 always_comb begin
     hit = hit_bits != 2'b00;
@@ -83,19 +78,15 @@ always_comb begin
     set_defaults();
     unique case (state)
         check_hit: begin
-            if (readop | writeop) begin
+            if (mem_read | mem_write) begin
                 if (hit) begin
                     mem_resp = 1'b1; 
                     ba_data_sel = cache_types::data;
 
                     next_lru = hit_way;
 
-                    if (writeop) begin
-                        data_in_sel = 1'b1;
-                        load_dirty = 1'b1;
-                        load_way_sel = hit_way;
-                        next_dirty_bits[hit_way] = 1'b1;
-                        load_data_sel = cache_types::loaden;
+                    if (mem_write) begin
+                        writeops();
                     end
                 end 
             end 
@@ -104,43 +95,24 @@ always_comb begin
             pmem_read = 1'b1;
 
             if (pmem_resp) begin
-                if (readop) mem_resp = 1'b1;
-
-
-                if (~valids[~lru]) begin
-                    load_valid = 1'b1;
-                end
-
-                ba_data_sel = cache_types::pmem;
-
-                load_data_sel = cache_types::loadall;
+                if (mem_read) mem_resp = 1'b1;
 
                 load_way = 1'b1;
                 load_way_sel = ~lru;
+
+                ba_data_sel = cache_types::pmem;
+                load_data_sel = cache_types::loadall;
             end
         end
         evict: begin
             pmem_write = 1'b1;
             pmem_addr_sel = cache_types::waddr;
 
-            // when evict, reset dirty/valid bits
             load_dirty = 1'b1;
-            load_valid = 1'b1;
-            
             next_dirty_bits[~lru] = 1'b0;
         end
         refill: begin
-            mem_resp = 1'b1; 
-            // $display("reflling processing at %0t", $time);
-            data_in_sel = 1'b1;
-            load_dirty = 1'b1;
-            load_way_sel = hit_way;
-            next_dirty_bits[hit_way] = 1'b1;
-            load_data_sel = cache_types::loaden;
-            // unique case (lru) 
-            //     1'b0: load_data_sel[0] = cache_types::loaden;
-            //     1'b1: load_data_sel[1] = cache_types::loaden;
-            // endcase
+            writeops();
         end 
         default: `BAD_CTRL_VAL;
     endcase
@@ -151,7 +123,7 @@ always_comb begin
     next_state = state;
     case (state)
         check_hit: begin
-            if (readop | writeop) begin
+            if (mem_read | mem_write) begin
                 if (~hit) begin
                     if (valids[~lru] & dirtys[~lru]) begin
                         next_state = evict;
@@ -163,7 +135,7 @@ always_comb begin
         end
         read_mem: begin
             if (pmem_resp) begin
-                if (readop) next_state = check_hit;
+                if (mem_read) next_state = check_hit;
                 else next_state = refill;
             end 
         end

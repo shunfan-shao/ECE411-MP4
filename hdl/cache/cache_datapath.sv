@@ -17,28 +17,24 @@ module cache_datapath #(
     input clk,
     input rst,
     
-    input load_valid,
-
     output logic lru,
-    input logic next_lru,
-
-    input logic [1:0] load_data_sel,
-
-    input logic [31:0] mem_address,
-
     output logic [1:0] hit_bits,
     output logic [1:0] valids,
     output logic [1:0] dirtys,
 
-    input logic data_in_sel,
-    input logic load_dirty,
+    input logic next_lru,
     input logic [1:0] next_dirty_bits,
-    input logic pmem_addr_sel,
 
     input logic load_way,
+    input logic load_dirty,
+    
     input logic load_way_sel,
     input logic ba_data_sel,
+    input logic pmem_addr_sel,
+    input logic data_in_sel,
+    input logic [1:0] load_data_sel,
 
+    input logic [31:0] mem_address,
     output logic [31:0] pmem_address,
     input logic [255:0] pmem_rdata,
     output logic [255:0] pmem_wdata,
@@ -48,20 +44,18 @@ module cache_datapath #(
 );
 
 logic [num_sets-1:0] lru_bits;
-
 logic [1:0][num_sets-1:0] valid_bits;
 logic [1:0][num_sets-1:0] dirty_bits;
 logic [num_sets-1:0][s_tag-1:0] tag_bits [1:0];
 
-
 logic [1:0][s_mask-1:0] write_en;
-logic [1:0][s_line-1:0] datain;
+logic [s_mask-1:0] next_write_en;
+
+logic [s_line-1:0] datain;
 logic [1:0][s_line-1:0] dataout;
-logic [1:0][s_tag-1:0] tag_out_bits;
 
 logic [s_index-1:0] addr_index;
 logic [s_tag-1:0] addr_tag;
-logic [s_mask-1:0] next_write_en;
 
 assign addr_index = mem_address[7:5];
 assign addr_tag = mem_address[31:8];
@@ -80,7 +74,7 @@ data_bits_0(
     .write_en(write_en[0]),
     .rindex(addr_index),
     .windex(addr_index),
-    .datain(datain[0]),
+    .datain(datain),
     .dataout(dataout[0])
 );
 
@@ -91,7 +85,7 @@ data_bits_1(
     .write_en(write_en[1]),
     .rindex(addr_index),
     .windex(addr_index),
-    .datain(datain[1]),
+    .datain(datain),
     .dataout(dataout[1])
 );
 
@@ -124,29 +118,6 @@ always_comb begin
         cache_types::pmem: ba_mem_rdata256 = pmem_rdata;
     endcase
 
-    //   for (int i=0; i<2; ++i) begin
-    //         unique case (load_data_sel[i])
-    //             cache_types::noload: begin 
-    //                 write_en[i] = 32'd0;
-    //                 // load_set_1 = 32'd0;
-    //             end
-    //             cache_types::loadall: begin
-    //                 write_en[i] = {32{1'b1}};
-    //                 // load_set_1 = {32{1'b1}};
-    //             end
-    //             cache_types::loaden: begin  
-    //                 write_en[i] = ba_mem_byte_enable256;
-    //                 // load_set_1 = ba_mem_byte_enable256;
-    //             end
-    //             default: begin  
-    //                 write_en[i] = 32'd0;
-    //                 // load_set_1 = 32'd0;
-    //             end
-    //         endcase
-    //   end
-
-
-
     unique case (load_data_sel) 
         cache_types::noload: begin 
             next_write_en = 32'd0;
@@ -170,27 +141,14 @@ always_comb begin
         end
     endcase
 
-      unique case (data_in_sel)
-            1'b0: begin
-                for (int i=0; i<2; ++i) begin
-                    datain[i] = pmem_rdata;
-                end
-                // datain[next_lru_idx] = pmem_rdata;
-                // datain[1] = pmem_rdata;
-            end
-            1'b1: begin
-                for (int i=0; i<2; ++i) begin
-                    datain[i] = ba_mem_wdata256;
-                    // if (mem_address == 32'h83fffda0) begin
-                    //     $display("at %t write to mem %x with data %x", $time, mem_address, ba_mem_wdata256);
-                    // end
-                end
-                // datain[next_lru_idx] = ba_mem_wdata256;
-                // datain[0] = ba_mem_wdata256;
-                // datain[1] = ba_mem_wdata256;
-            end
-            default: ;
-      endcase
+    unique case (data_in_sel)
+        cache_types::rdata: begin
+            datain = pmem_rdata;
+        end
+        cache_types::wdata: begin
+            datain = ba_mem_wdata256;
+        end
+    endcase
 
     unique case (pmem_addr_sel)
         cache_types::raddr: pmem_address = {mem_address[31:5], 5'd0};
