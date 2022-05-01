@@ -1,8 +1,8 @@
 module multicycle_multiplier(
     input clk,
     input rst,
-    input logic [31:0] multiplicand, 
-    input logic [31:0] multiplier,
+    input logic [31:0] a, 
+    input logic [31:0] b,
     output logic [63:0] product,
 
     input calc,
@@ -12,6 +12,8 @@ module multicycle_multiplier(
 byte unsigned step, next_step;
 logic [31:0] t32_3, t32_2, t32_1, t32_0;
 logic [31:0] next_t32_3, next_t32_2, next_t32_1, next_t32_0;
+logic [31:0] multiplicand; 
+logic [31:0] multiplier;
 
 task automatic half_adder(
     input a,
@@ -80,8 +82,9 @@ task automatic wallace_tree_8bit(
 
     logic far4_0, far4_1, far4_2, far4_3, far4_4, far4_5, far4_6,
         fac4_0, fac4_1, fac4_2, fac4_3, fac4_4, fac4_5, fac4_6;
-    logic [15:0] final_a;
-    logic [15:0] final_b;
+    // logic [15:0] final_a;
+    // logic [15:0] final_b;
+    logic [15:0] carry;
 
     begin
         partial_product_0 = a & {8{b[0]}};
@@ -152,40 +155,18 @@ task automatic wallace_tree_8bit(
         full_adder (har2_2, hac3_3, fac2_c, far4_6, fac4_6);
         half_adder (partial_product_7[7], hac2_2, har4_3, hac4_3);
 
-        final_a[0] = partial_product_0[0];
-        final_a[1] = har1_0;
-        final_a[2] = har2_0;
-        final_a[3] = har3_0;
-        final_a[4] = har4_0;
-        final_a[5] = har4_1;
-        final_a[6] = har4_2;
-        final_a[7] = far4_0;
-        final_a[8] = far4_1;
-        final_a[9] = far4_2;
-        final_a[10] = far4_3;
-        final_a[11] = far4_4;
-        final_a[12] = far4_5;
-        final_a[13] = far4_6;
-        final_a[14] = har4_3;
-        final_a[15] = 0;
-
-        final_b[0] = 0;
-        final_b[1] = 0;
-        final_b[2] = 0;
-        final_b[3] = 0;
-        final_b[4] = 0;
-        final_b[5] = hac4_0;
-        final_b[6] = hac4_1;
-        final_b[7] = hac4_2;
-        final_b[8] = fac4_0;
-        final_b[9] = fac4_1;
-        final_b[10] = fac4_2;
-        final_b[11] = fac4_3;
-        final_b[12] = fac4_4;
-        final_b[13] = fac4_5;
-        final_b[14] = fac4_6;
-        final_b[15] = hac4_3;
-        p = final_a + final_b;
+        p[5:0] = {har4_0, har3_0, har2_0, har1_0, partial_product_0[0]};
+        full_adder(hac4_0, har4_1, 1'b0, p[5], carry[5]);
+        full_adder(hac4_1, har4_2, carry[5], p[6], carry[6]);
+        full_adder(hac4_2, far4_0, carry[6], p[7], carry[7]);
+        full_adder(fac4_0, far4_1, carry[7], p[8], carry[8]);
+        full_adder(fac4_1, far4_2, carry[8], p[9], carry[9]);
+        full_adder(fac4_2, far4_3, carry[9], p[10], carry[10]);
+        full_adder(fac4_3, far4_4, carry[10], p[11], carry[11]);
+        full_adder(fac4_4, far4_5, carry[11], p[12], carry[12]);
+        full_adder(fac4_5, far4_6, carry[12], p[13], carry[13]);
+        full_adder(fac4_6, har4_3, carry[13], p[14], carry[14]);
+        full_adder(hac4_3, 1'b0, carry[14], p[15], carry[15]);
     end    
 endtask
 
@@ -225,6 +206,9 @@ always_ff @(posedge clk) begin
         t32_1 <= next_t32_1;
         t32_2 <= next_t32_2;
         t32_3 <= next_t32_3;
+
+        multiplicand <= a;
+        multiplier <= b;
     end
 end
 
@@ -265,7 +249,8 @@ always_comb begin
     product = 0;
     done = 1'b0;
     unique case (state) 
-        idle: ;
+        idle: begin
+        end
         w00: begin
             wallace_tree_16bit(multiplicand[15:0], multiplier[15:0], next_t32_0);
         end

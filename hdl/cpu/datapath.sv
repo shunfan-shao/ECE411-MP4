@@ -361,8 +361,8 @@ BTB(
 multicycle_multiplier
 MULT(
     .clk(clk),
-    .multiplicand(alumux1_out),
-    .multiplier(alumux2_out),
+    .a(alumux1_out),
+    .b(alumux2_out),
     .product(mult_out),
     .calc(mult_start),
     .done(mult_done)
