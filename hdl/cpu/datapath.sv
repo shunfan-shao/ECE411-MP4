@@ -348,7 +348,11 @@ btb #(.s_index(S_PC_TAG))
 BTB(
     .clk(clk),
     .rst(rst),
+    .stall(stall),
+
     .br_en(branch_taken),
+
+    .ex_decoder(inst_decoder[STAGE_EX]),
 
     .pc_ex(pc_out[STAGE_EX]),
     .target_address(alu_ex_out),
@@ -361,6 +365,7 @@ BTB(
 multicycle_multiplier
 MULT(
     .clk(clk),
+    .rst(rst),
     .a(alumux1_out),
     .b(alumux2_out),
     .product(mult_out),
