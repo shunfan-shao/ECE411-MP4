@@ -120,34 +120,44 @@ always_comb begin
 end
 
 always_comb begin
-    next_state = state;
-    case (state)
-        check_hit: begin
-            if (mem_read | mem_write) begin
-                if (~hit) begin
-                    if (valids[~lru] & dirtys[~lru]) begin
-                        next_state = evict;
+        case (state)
+            check_hit: begin
+                if (mem_read | mem_write) begin
+                    // if hit, stays check_hit
+                    if (~hit) begin
+                        if (valids[~lru] & dirtys[~lru]) begin
+                            next_state = evict;
+                        end else begin
+                            next_state = read_mem;
+                        end
                     end else begin
-                        next_state = read_mem;
+                        next_state = check_hit;
                     end
-                end 
-            end 
-        end
-        read_mem: begin
-            if (pmem_resp) begin
-                if (mem_read) next_state = check_hit;
-                else next_state = refill;
-            end 
-        end
-        refill: begin
-            next_state = check_hit;
-        end
-        evict: begin
-            if (pmem_resp) begin
-                next_state = read_mem;
-            end 
-        end
-    endcase
+                end else begin
+                    next_state = check_hit;
+                end
+            end
+            read_mem: begin
+                if (pmem_resp) begin
+                    if (mem_read) next_state = check_hit;
+                    else next_state = refill;
+                end else begin
+                    next_state = read_mem;
+                end
+            end
+            refill: begin
+                next_state = check_hit;
+            end
+            evict: begin
+                // next_state = ready;
+                if (pmem_resp) begin
+                    next_state = read_mem;
+                end else begin
+                    // $display("at %t, evict to address", $time);
+                    next_state = evict;
+                end
+            end
+        endcase
 end
 
 always_ff @(posedge clk)

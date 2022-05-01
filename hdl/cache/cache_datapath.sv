@@ -27,7 +27,7 @@ module cache_datapath #(
 
     input logic load_way,
     input logic load_dirty,
-    
+
     input logic load_way_sel,
     input logic ba_data_sel,
     input logic pmem_addr_sel,
@@ -70,7 +70,6 @@ assign pmem_wdata = dataout[~lru];
 data_array #(.s_offset(s_offset), .s_index(s_index))
 data_bits_0(
     .clk(clk),
-    .read(1'b1),
     .write_en(write_en[0]),
     .rindex(addr_index),
     .windex(addr_index),
@@ -81,7 +80,6 @@ data_bits_0(
 data_array #(.s_offset(s_offset), .s_index(s_index))
 data_bits_1(
     .clk(clk),
-    .read(1'b1),
     .write_en(write_en[1]),
     .rindex(addr_index),
     .windex(addr_index),
