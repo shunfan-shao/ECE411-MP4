@@ -112,6 +112,7 @@ always_comb begin
             next_dirty_bits[~lru] = 1'b0;
         end
         refill: begin
+            mem_resp = 1'b1; 
             writeops();
         end 
         default: `BAD_CTRL_VAL;

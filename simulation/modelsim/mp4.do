@@ -9,8 +9,8 @@ set mp4_path [pwd]
 
 vlog -reportprogress 300 -work work $mp4_path/../../hdl/rv32i_mux_types.sv
 vlog -reportprogress 300 -work work $mp4_path/../../hdl/rv32i_types.sv
-vlog -reportprogress 300 -work work $mp4_path/../../hdl/cache_types.sv
 vlog -reportprogress 300 -work work $mp4_path/../../hdl/inst_cache/*.sv
+vlog -reportprogress 300 -work work $mp4_path/../../hdl/cache/cache_types.sv
 vlog -reportprogress 300 -work work $mp4_path/../../hdl/cache/*.sv
 vlog -reportprogress 300 -work work $mp4_path/../../hdl/cpu/*.sv
 vlog -reportprogress 300 -work work $mp4_path/../../hdl/*.sv
