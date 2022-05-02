@@ -115,16 +115,16 @@ end
 logic [s_buffer-1:0][s_tag-1:0] ret_tag;
 logic [s_buffer-1:0] ret_valid;
 
-always_ff @(posedge clk) begin
-    if (rst) begin
-        ret_valid <= 0;
-    end else begin
-        if (is_ret) begin
-            ret_valid[pc_ex_index] = 1'b1;
-            ret_tag[pc_ex_index] = pc_ex_tag;
-        end
-    end
-end
+// always_ff @(posedge clk) begin
+//     if (rst) begin
+//         ret_valid <= 0;
+//     end else begin
+//         if (is_ret) begin
+//             ret_valid[pc_ex_index] = 1'b1;
+//             ret_tag[pc_ex_index] = pc_ex_tag;
+//         end
+//     end
+// end
 
 logic [s_buffer-1:0][s_tag-1:0] tag;
 logic [s_buffer-1:0] valid;
@@ -134,16 +134,18 @@ logic [s_buffer-1:0][31:0] predicted_pc;
 always_ff @(posedge clk) begin
     if (rst) begin
         valid <= 0;
+        ret_valid <= 0;
     end else begin
-        if (br_en & ~is_ret) begin
+        if (is_ret) begin
+            ret_valid[pc_ex_index] = 1'b1;
+            ret_tag[pc_ex_index] = pc_ex_tag;
+        end
+        else if (br_en) begin
             // If branch taken at ex stage
             valid[pc_ex_index] = 1'b1;
             predicted_pc[pc_ex_index] = target_address;
             tag[pc_ex_index] = pc_ex_tag;
-        end else begin
-            // If branch is not taken, 
-            // valid[pc_ex_tag] = 1'b0;
-        end
+        end 
     end
 end
 

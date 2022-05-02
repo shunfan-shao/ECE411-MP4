@@ -32,7 +32,8 @@ localparam STAGE_WB  = 4;
 
 localparam S_PC_TAG = 5;
 
-logic branch_taken;
+logic btb_load;
+logic branch_predicted;
 logic stall, stall_ifid, flush;
 rv32i_word inst[STAGE_ID:STAGE_WB];
 rv32i_decoder_word inst_decoder[STAGE_ID:STAGE_WB];
@@ -350,7 +351,7 @@ BTB(
     .rst(rst),
     .stall(stall),
 
-    .br_en(branch_taken),
+    .br_en(btb_load),
 
     .ex_decoder(inst_decoder[STAGE_EX]),
 
@@ -386,18 +387,6 @@ DIV(
 ); 
 
 always_comb begin : FORWARD
-    rs2_fwoutmux_out[STAGE_EX] = rs2_out[STAGE_EX];
-    if (inst_decoder[STAGE_WB].rd != 5'd0) begin
-        if (inst_decoder[STAGE_WB].rd == inst_decoder[STAGE_EX].rs2) begin
-            rs2_fwoutmux_out[STAGE_EX] = regfilemux_out;
-        end
-    end
-    if (inst_decoder[STAGE_MEM].rd != 5'd0) begin
-        if (inst_decoder[STAGE_MEM].rd == inst_decoder[STAGE_EX].rs2) begin
-            rs2_fwoutmux_out[STAGE_EX] = alu_out[STAGE_MEM];
-        end
-    end
-
     rs1_fwoutmux_out = rs1_out[STAGE_EX];
     if (inst_decoder[STAGE_WB].rd != 5'd0) begin
         if (inst_decoder[STAGE_WB].rd == inst_decoder[STAGE_EX].rs1) begin
@@ -414,6 +403,20 @@ always_comb begin : FORWARD
             endcase
         end
     end
+
+    rs2_fwoutmux_out[STAGE_EX] = rs2_out[STAGE_EX];
+    if (inst_decoder[STAGE_WB].rd != 5'd0) begin
+        if (inst_decoder[STAGE_WB].rd == inst_decoder[STAGE_EX].rs2) begin
+            rs2_fwoutmux_out[STAGE_EX] = regfilemux_out;
+        end
+    end
+    if (inst_decoder[STAGE_MEM].rd != 5'd0) begin
+        if (inst_decoder[STAGE_MEM].rd == inst_decoder[STAGE_EX].rs2) begin
+            rs2_fwoutmux_out[STAGE_EX] = alu_out[STAGE_MEM];
+        end
+    end
+
+
 end
 
 always_comb begin : STALL
@@ -477,7 +480,6 @@ always_comb begin : INST
     inst_control[STAGE_ID] = ctrl;
     id_ex_decoder_word = inst_decoder[STAGE_ID];
 
-    branch_taken = 1'b0;
     stall_ifid = 1'b0;
     flush = 1'b0;
     
@@ -504,61 +506,81 @@ always_comb begin : INST
     unique case (inst_decoder[STAGE_EX].opcode)
         op_br: begin
             pcmux_out = (br_en[STAGE_EX] ? alu_ex_out : pc_out[STAGE_IF] + 4);
-            branch_taken = br_en[STAGE_EX];
-
+            btb_load = 1'b0;
+            branch_predicted = ~br_en[STAGE_EX];
             // $display("brach op at %t", $time);
         end
         op_jal:  begin
             pcmux_out = alu_ex_out;
-            branch_taken = 1'b1;
+            btb_load = 1'b1;
+            branch_predicted = btb_hit[STAGE_EX];
             // $display("op_jal op at %t", $time);
         end
         op_jalr: begin
             pcmux_out = {alu_ex_out[31:1], 1'b0};
-            branch_taken = 1'b1;
+            btb_load = 1'b1;
+            branch_predicted = btb_hit[STAGE_EX];
             // $display("op_jalr op at %t", $time);
         end
-        default: pcmux_out = pc_out[STAGE_IF] + 4;
+        default: begin  
+            pcmux_out = pc_out[STAGE_IF] + 4;
+            btb_load = 1'b0;
+            branch_predicted = 1'b1;
+        end
     endcase
 
+    // if (~branch_predicted) begin
+    //     inst[STAGE_ID] = 32'h00000013; 
+    //     inst_control[STAGE_ID].load_regfile = 1'b0; 
 
-    if (btb_hit[STAGE_EX]) begin
-        if (branch_taken) begin
-            if (pcmux_out == btb_predict_address[STAGE_EX]) begin
+    //     id_ex_decoder_word.rs1 = 0;
+    //     id_ex_decoder_word.rs2 = 0;
+    //     id_ex_decoder_word.rd = 0;
+    //     id_ex_decoder_word.opcode = op_imm;
+    //     flush = 1'b1;
+    // end else begin
+    //     pcmux_out = pc_out[STAGE_EX] + 4;
+    // end
+
+    if (branch_predicted) begin
+        // if (branch_taken) begin
+            // if (pcmux_out == btb_predict_address[STAGE_EX]) begin
                 pcmux_out = pc_out[STAGE_IF] + 4;
 
                 if (btb_hit[STAGE_IF]) begin
                     pcmux_out = btb_predict_address[STAGE_IF];
                 end 
-            end else begin
-                // predict wrong address
-                inst[STAGE_ID] = 32'h00000013; 
-                inst_control[STAGE_ID].load_regfile = 1'b0; 
+            // end 
+            // else begin
+            //     // predict wrong address
+            //     inst[STAGE_ID] = 32'h00000013; 
+            //     inst_control[STAGE_ID].load_regfile = 1'b0; 
 
-                id_ex_decoder_word.rs1 = 0;
-                id_ex_decoder_word.rs2 = 0;
-                id_ex_decoder_word.rd = 0;
-                id_ex_decoder_word.opcode = op_imm;
+            //     id_ex_decoder_word.rs1 = 0;
+            //     id_ex_decoder_word.rs2 = 0;
+            //     id_ex_decoder_word.rd = 0;
+            //     id_ex_decoder_word.opcode = op_imm;
 
-                flush = 1'b1;
+            //     flush = 1'b1;
 
-                // pcmux_out = pc_out[STAGE_EX] + 4;
-            end
-        end else begin
-            inst[STAGE_ID] = 32'h00000013; 
-            inst_control[STAGE_ID].load_regfile = 1'b0; 
+            //     // pcmux_out = pc_out[STAGE_EX] + 4;
+            // end
+        // end 
+        // else begin
+        //     inst[STAGE_ID] = 32'h00000013; 
+        //     inst_control[STAGE_ID].load_regfile = 1'b0; 
 
-            id_ex_decoder_word.rs1 = 0;
-            id_ex_decoder_word.rs2 = 0;
-            id_ex_decoder_word.rd = 0;
-            id_ex_decoder_word.opcode = op_imm;
+        //     id_ex_decoder_word.rs1 = 0;
+        //     id_ex_decoder_word.rs2 = 0;
+        //     id_ex_decoder_word.rd = 0;
+        //     id_ex_decoder_word.opcode = op_imm;
 
-            flush = 1'b1;
+        //     flush = 1'b1;
 
-            pcmux_out = pc_out[STAGE_EX] + 4;
-        end
+        //     pcmux_out = pc_out[STAGE_EX] + 4;
+        // end
     end else begin
-        if (branch_taken) begin
+        // if (branch_taken) begin
             // Not hit but a branch was taken
             inst[STAGE_ID] = 32'h00000013; 
             inst_control[STAGE_ID].load_regfile = 1'b0; 
@@ -569,11 +591,12 @@ always_comb begin : INST
             id_ex_decoder_word.opcode = op_imm;
             flush = 1'b1;
 
-        end else begin
-            if (btb_hit[STAGE_IF]) begin
-                pcmux_out = btb_predict_address[STAGE_IF];
-            end 
-        end
+        // end 
+        // else begin
+        //     if (btb_hit[STAGE_IF]) begin
+        //         pcmux_out = btb_predict_address[STAGE_IF];
+        //     end 
+        // end
     end
 
     // Sometimes the register values are nevered used and should not be forwarded
