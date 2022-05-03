@@ -19,7 +19,6 @@ module cache_control
     output logic [1:0] next_dirty_bits,
 
 
-    output logic load_data,
     output logic load_way,
     output logic load_dirty,
 
@@ -52,7 +51,6 @@ function automatic void set_defaults();
     next_lru = lru;
     next_dirty_bits = dirtys;
 
-    load_data = 1'b0;
     load_dirty = 1'b0;
 
     load_way = 1'b0;
@@ -81,7 +79,6 @@ always_comb begin
             if (mem_read | mem_write) begin
                 if (hit) begin
                     mem_resp = 1'b1; 
-                    load_data = 1'b1;
                     ba_data_sel = cache_types::data;
 
                     next_lru = hit_way;
@@ -98,7 +95,6 @@ always_comb begin
             if (pmem_resp) begin
                 if (mem_read) mem_resp = 1'b1;
 
-                load_data = 1'b1;
                 load_way = 1'b1;
                 load_way_sel = ~lru;
 

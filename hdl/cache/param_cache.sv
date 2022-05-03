@@ -40,7 +40,6 @@ logic [1:0] valids;
 logic [1:0] dirtys;
 logic [1:0] next_dirty_bits;
 
-logic load_data;
 logic load_way;
 logic load_dirty;
     
