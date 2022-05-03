@@ -30,8 +30,8 @@ input [s_line-1:0] datain;
 output logic [s_line-1:0] dataout;
 
 logic [s_line-1:0] data [num_sets-1:0] /* synthesis ramstyle = "logic" */;
-logic [s_line-1:0] _dataout;
-// assign dataout = _dataout;
+// logic [s_line-1:0] _dataout;
+assign dataout = data[rindex];
 
 always_ff @(posedge clk)
 begin
@@ -40,14 +40,14 @@ begin
                                                     data[windex][8*i +: 8];
 end
 
-always_comb begin
-    if (read)
-        for (int i = 0; i < s_mask; i++) 
-            dataout[8*i +: 8] = write_en[i] ? 
-                    datain[8*i +: 8] : data[rindex][8*i +: 8];
-    else
-        dataout = data[rindex];
-end
+// always_comb begin
+//     if (read)
+//         for (int i = 0; i < s_mask; i++) 
+//             dataout[8*i +: 8] = write_en[i] ? 
+//                     datain[8*i +: 8] : data[rindex][8*i +: 8];
+//     else
+//         dataout = data[rindex];
+// end
 
 
 endmodule : data_array
