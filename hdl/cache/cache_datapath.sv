@@ -124,6 +124,7 @@ always_comb begin
         cache_types::loaden: begin  
             next_write_en = ba_mem_byte_enable256;
         end
+        default: next_write_en = 32'd0;
     endcase
 
     unique case (load_way_sel)
@@ -144,6 +145,7 @@ always_comb begin
         cache_types::wdata: begin
             datain = ba_mem_wdata256;
         end
+        default: datain = ba_mem_wdata256;
     endcase
 
     unique case (pmem_addr_sel)

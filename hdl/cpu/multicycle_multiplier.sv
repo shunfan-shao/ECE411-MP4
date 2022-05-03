@@ -207,8 +207,10 @@ always_ff @(posedge clk) begin
         t32_2 <= next_t32_2;
         t32_3 <= next_t32_3;
 
-        multiplicand <= a;
-        multiplier <= b;
+        if (calc) begin
+            multiplicand <= a;
+            multiplier <= b;
+        end
     end
 end
 
