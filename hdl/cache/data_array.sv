@@ -9,6 +9,7 @@ module data_array #(
 )
 (
     clk,
+    read,
     write_en,
     rindex,
     windex,
@@ -21,6 +22,7 @@ localparam s_line   = 8*s_mask;
 localparam num_sets = 2**s_index;
 
 input clk;
+input read;
 input [s_mask-1:0] write_en;
 input [s_index-1:0] rindex;
 input [s_index-1:0] windex;
@@ -39,9 +41,12 @@ begin
 end
 
 always_comb begin
-    for (int i = 0; i < s_mask; i++) 
-        dataout[8*i +: 8] = write_en[i] ? 
+    if (read)
+        for (int i = 0; i < s_mask; i++) 
+            dataout[8*i +: 8] = write_en[i] ? 
                     datain[8*i +: 8] : data[rindex][8*i +: 8];
+    else
+        dataout = data[rindex];
 end
 
 
