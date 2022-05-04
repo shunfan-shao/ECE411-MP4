@@ -14,10 +14,10 @@ begin
     /* Default assignments */
     ctrl.load_regfile = 1'b0;
 
-    ctrl.pcmux_sel = pcmux::pc_plus4;
     ctrl.cmpmux_sel = cmpmux::rs2_out;
     /* ... other defaults ... */
     ctrl.cmpop = branch_funct3_t'(funct3);
+    ctrl.aluop = alu_add;
 
     /* Assign control signals based on opcode */
     case(opcode)
