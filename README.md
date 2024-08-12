@@ -1,5 +1,5 @@
 # Pipeline RISC-V Processor
-The design was ranked 3rd place during the competition SP22. Note that the project is in a form of 3 people while the competition code is fully implemented by me alone. 
+The design was ranked 3rd place during the competition SP22. 
 
 ## Performance Numbers (100 MHz)
 | | Comp1 | Comp2  | Comp3  |
